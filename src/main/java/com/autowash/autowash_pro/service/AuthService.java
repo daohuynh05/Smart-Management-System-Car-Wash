@@ -56,10 +56,10 @@ public class AuthService {
             .password(passwordEncoder.encode(request.getPassword()))
             .build();
 
-        customerRepository.save(customer);
+        Customer savedCustomer = customerRepository.save(customer);
 
         // Tạo token ngay sau đăng ký
-        return buildAuthResponse(customer);
+        return buildAuthResponse(savedCustomer);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -112,6 +112,7 @@ public class AuthService {
     private AuthResponse buildAuthResponse(Customer customer) {
         String role = customer.isAdmin() ? "ADMIN" : "CUSTOMER";
         return AuthResponse.builder()
+            .id(customer.getCustomerId())
             .accessToken(jwtUtil.generateAccessToken(
                 customer.getPhone(), role))
             .refreshToken(jwtUtil.generateRefreshToken(
