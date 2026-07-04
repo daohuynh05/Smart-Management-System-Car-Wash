@@ -31,6 +31,9 @@ public class BookingResponse {
     private LocalDateTime createdAt;
     private java.util.List<BookingServiceResponse> selectedServices;
     private java.math.BigDecimal totalAmount;
+    private UUID promoId;
+    private String promoName;
+    private java.math.BigDecimal discountAmount;
 
     public static BookingResponse from(com.autowash.autowash_pro.entity.Booking booking) {
         com.autowash.autowash_pro.entity.Customer customer = booking.getCustomer();
@@ -73,6 +76,9 @@ public class BookingResponse {
                 .createdAt(booking.getCreatedAt())
                 .selectedServices(services)
                 .totalAmount(booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.valueOf(calculatedBasePrice))
+                .promoId(booking.getPromotion() != null ? booking.getPromotion().getPromoId() : null)
+                .promoName(booking.getPromotion() != null ? booking.getPromotion().getName() : null)
+                .discountAmount(booking.getDiscountAmount())
                 .build();
     }
 }

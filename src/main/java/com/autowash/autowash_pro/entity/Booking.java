@@ -59,8 +59,10 @@ public class Booking {
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
 
+    // Logic cũ dùng enum nhx logic mới đã có thêm dịch vụ nên hông dùng cái này nữa
+    // vẫn để vì database đã thêm xóa sẽ dẫn đến lỗi nên vẫn để chỉ là không dùng
     @Enumerated(EnumType.STRING)
-    @Column(name = "service_type", nullable = false, length = 20)
+    @Column(name = "service_type", nullable = true, length = 20)
     private ServiceType serviceType;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -70,6 +72,16 @@ public class Booking {
 
     @Column(name = "total_amount", precision = 12, scale = 2)
     private java.math.BigDecimal totalAmount;
+
+    // thêm mới áp dựng promotion vào booking
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promo_id")
+    @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
+    private Promotion promotion;
+
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal discountAmount = java.math.BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

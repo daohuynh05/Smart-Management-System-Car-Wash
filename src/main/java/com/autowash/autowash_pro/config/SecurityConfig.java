@@ -59,7 +59,8 @@ public class SecurityConfig {
                                                                 "/api/customers/**",
                                                                 "/api/bookings/**",
                                                                 "/api/loyalty/**",
-                                                                "/api/vehicles/**")
+                                                                "/api/vehicles/**",
+                                                                "/api/promotions/**")
                                                 .hasAnyRole("CUSTOMER", "ADMIN")
                                                 .anyRequest().authenticated())
                                 .userDetailsService(userDetailsService)

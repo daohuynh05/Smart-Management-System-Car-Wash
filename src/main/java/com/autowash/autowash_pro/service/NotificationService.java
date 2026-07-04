@@ -23,27 +23,27 @@ public class NotificationService {
 
     public void sendBookingStatusChanged(Booking booking) {
         String message = "Lịch rửa xe của bạn đã chuyển sang trạng thái "
-            + booking.getStatus();
+                + booking.getStatus();
 
         BookingStatusEvent statusEvent = BookingStatusEvent.builder()
-            .bookingId(booking.getBookingId())
-            .status(booking.getStatus())
-            .message(message)
-            .updatedAt(LocalDateTime.now())
-            .build();
+                .bookingId(booking.getBookingId())
+                .status(booking.getStatus())
+                .message(message)
+                .updatedAt(LocalDateTime.now())
+                .build();
 
         messagingTemplate.convertAndSend(
-            "/topic/booking/" + booking.getBookingId(),
-            statusEvent);
+                "/topic/booking/" + booking.getBookingId(),
+                statusEvent);
 
         sendToCustomer(
-            booking.getCustomer().getCustomerId(),
-            NotificationEvent.builder()
-                .type(NotificationType.BOOKING_UPDATE)
-                .title("Cập nhật lịch rửa xe")
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .build());
+                booking.getCustomer().getCustomerId(),
+                NotificationEvent.builder()
+                        .type(NotificationType.BOOKING_UPDATE)
+                        .title("Cập nhật lịch rửa xe")
+                        .message(message)
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
 
     public void sendPointsEarned(
@@ -52,16 +52,16 @@ public class NotificationService {
             int newBalance) {
 
         sendToCustomer(
-            customer.getCustomerId(),
-            NotificationEvent.builder()
-                .type(NotificationType.POINTS_EARNED)
-                .title("Bạn vừa được tích điểm")
-                .message(String.format(
-                    "Bạn nhận được %d điểm. Số dư hiện tại: %d điểm.",
-                    pointsEarned,
-                    newBalance))
-                .timestamp(LocalDateTime.now())
-                .build());
+                customer.getCustomerId(),
+                NotificationEvent.builder()
+                        .type(NotificationType.POINTS_EARNED)
+                        .title("Bạn vừa được tích điểm")
+                        .message(String.format(
+                                "Bạn nhận được %d điểm. Số dư hiện tại: %d điểm.",
+                                pointsEarned,
+                                newBalance))
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
 
     public void sendTierChanged(
@@ -70,32 +70,32 @@ public class NotificationService {
             Tier newTier) {
 
         sendToCustomer(
-            customer.getCustomerId(),
-            NotificationEvent.builder()
-                .type(NotificationType.TIER_UPGRADE)
-                .title("Hạng thành viên đã thay đổi")
-                .message(String.format(
-                    "Hạng của bạn đã thay đổi từ %s sang %s.",
-                    oldTier,
-                    newTier))
-                .timestamp(LocalDateTime.now())
-                .build());
+                customer.getCustomerId(),
+                NotificationEvent.builder()
+                        .type(NotificationType.TIER_UPGRADE)
+                        .title("Hạng thành viên đã thay đổi")
+                        .message(String.format(
+                                "Hạng của bạn đã thay đổi từ %s sang %s.",
+                                oldTier,
+                                newTier))
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
 
     public void sendPromotionNew(UUID customerId, String title, String message) {
         sendToCustomer(
-            customerId,
-            NotificationEvent.builder()
-                .type(NotificationType.PROMO_NEW)
-                .title(title)
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .build());
+                customerId,
+                NotificationEvent.builder()
+                        .type(NotificationType.PROMO_NEW)
+                        .title(title)
+                        .message(message)
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
 
     public void sendToCustomer(UUID customerId, NotificationEvent event) {
         messagingTemplate.convertAndSend(
-            "/topic/customer/" + customerId + "/notifications",
-            event);
+                "/topic/customer/" + customerId + "/notifications",
+                event);
     }
 }

@@ -99,11 +99,16 @@ public class LoyaltyService {
         Customer customer = findCustomerById(request.getCustomerId());
         LoyaltyTierConfig config = findActiveConfig();
 
-        // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier
-        double multiplier = getTierMultiplier(config, customer.getTier());
-        int points = (int) (request.getAmountPaid()
-            .divide(config.getVndPerPoint(), 4, RoundingMode.FLOOR)
-            .doubleValue() * multiplier);
+        int points;
+        if (request.getCustomPoints() != null && request.getCustomPoints() > 0) {
+            points = request.getCustomPoints();
+        } else {
+            // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier
+            double multiplier = getTierMultiplier(config, customer.getTier());
+            points = (int) (request.getAmountPaid()
+                .divide(config.getVndPerPoint(), 4, RoundingMode.FLOOR)
+                .doubleValue() * multiplier);
+        }
 
         if (points <= 0) {
             log.debug("Giao dịch {} không đủ điều kiện tích điểm (amountPaid={})",

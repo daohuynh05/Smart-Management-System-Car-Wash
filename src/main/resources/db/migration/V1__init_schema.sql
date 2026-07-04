@@ -32,7 +32,7 @@ CREATE TABLE bookings (
     customer_id    UUID NOT NULL REFERENCES customers(customer_id),
     vehicle_id     UUID NOT NULL REFERENCES vehicles(vehicle_id),
     scheduled_at   TIMESTAMP NOT NULL,
-    service_type   VARCHAR(50) NOT NULL,
+    service_type   VARCHAR(50),
     status         VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     priority_score INT NOT NULL,
     notes          TEXT,
