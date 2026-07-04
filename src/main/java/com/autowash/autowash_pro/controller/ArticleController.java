@@ -16,10 +16,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.autowash.autowash_pro.entity.Article;
 import com.autowash.autowash_pro.service.ArticleService;
+import io.swagger.v3.oas.annotations.Operation;
 
 @RestController
 @RequestMapping("/api/admin/articles")
-@CrossOrigin(origins = "http://localhost:5173") // Mở cổng kết nối trực tiếp với Vite Frontend
+@CrossOrigin(origins = "http://localhost:5173")
 public class ArticleController {
 
     private final ArticleService articleService;
@@ -35,7 +36,7 @@ public class ArticleController {
     public ResponseEntity<List<Article>> getAdminArticles(
             @RequestParam(value = "status", required = false, defaultValue = "ALL") String status,
             @RequestParam(value = "search", required = false) String search) {
-        
+
         List<Article> articles = articleService.getAdminArticles(status, search);
         return ResponseEntity.ok(articles);
     }

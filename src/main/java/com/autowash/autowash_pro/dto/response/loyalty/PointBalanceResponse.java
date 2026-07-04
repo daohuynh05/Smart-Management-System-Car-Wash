@@ -16,4 +16,14 @@ public class PointBalanceResponse {
     private int lifetimePoints;
     private int expiringPointsIn30Days;
     private LocalDateTime nearestExpiryDate;
+    private int totalVisits;
+    private String nextTier;
+    private int remainingVisits;
+    private int silverThreshold;
+    private int goldThreshold;
+    private int platinumThreshold;
+    private int redeemPointsFor10k;
+    private int redeemPointsFreeBasic;
+    private int redeemPointsFreePremium;
+    private int redeemPointsAddon;
 }
