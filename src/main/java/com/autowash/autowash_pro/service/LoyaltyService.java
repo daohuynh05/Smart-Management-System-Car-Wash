@@ -12,6 +12,8 @@ import com.autowash.autowash_pro.enums.RedeemType;
 import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
+import com.autowash.autowash_pro.entity.SystemConfig;
+import com.autowash.autowash_pro.entity.TierRule;
 import com.autowash.autowash_pro.repository.CustomerPointsRepository;
 import com.autowash.autowash_pro.repository.CustomerRepository;
 import com.autowash.autowash_pro.repository.LoyaltyTierConfigRepository;
@@ -39,6 +41,7 @@ public class LoyaltyService {
     private final CustomerPointsRepository customerPointsRepository;
     private final LoyaltyTierConfigRepository loyaltyTierConfigRepository;
     private final NotificationService notificationService;
+    private final AdminConfigService adminConfigService;
 
     // =========================================================================
     // Admin: Xem cấu hình điểm thưởng
@@ -231,6 +234,42 @@ public class LoyaltyService {
         int expiringPoints = expiringList.stream().mapToInt(CustomerPoints::getPoints).sum();
         LocalDateTime nearestExpiry = expiringList.isEmpty() ? null : expiringList.get(0).getExpiresAt();
 
+        // Tính toán tiến trình thăng hạng dựa trên số lượt rửa xe (Visits) từ cấu hình động
+        SystemConfig systemConfig = adminConfigService.getSystemConfig();
+        List<TierRule> rules = systemConfig.getTierRules();
+        
+        int silverThreshold = 10;
+        int goldThreshold = 25;
+        int platinumThreshold = 50;
+
+        if (rules != null) {
+            for (TierRule rule : rules) {
+                if ("silver".equalsIgnoreCase(rule.getTier())) {
+                    silverThreshold = rule.getThreshold();
+                } else if ("gold".equalsIgnoreCase(rule.getTier())) {
+                    goldThreshold = rule.getThreshold();
+                } else if ("platinum".equalsIgnoreCase(rule.getTier())) {
+                    platinumThreshold = rule.getThreshold();
+                }
+            }
+        }
+
+        int visits = customer.getTotalVisits();
+        String nextTier = "";
+        int remainingVisits = 0;
+        if (customer.getTier() == Tier.MEMBER) {
+            nextTier = "SILVER";
+            remainingVisits = Math.max(0, silverThreshold - visits);
+        } else if (customer.getTier() == Tier.SILVER) {
+            nextTier = "GOLD";
+            remainingVisits = Math.max(0, goldThreshold - visits);
+        } else if (customer.getTier() == Tier.GOLD) {
+            nextTier = "PLATINUM";
+            remainingVisits = Math.max(0, platinumThreshold - visits);
+        }
+
+        LoyaltyTierConfig activeTierConfig = findActiveConfig();
+
         return PointBalanceResponse.builder()
             .customerId(customerId)
             .fullName(customer.getFullName())
@@ -239,6 +278,16 @@ public class LoyaltyService {
             .lifetimePoints(customer.getLifetimePoints())
             .expiringPointsIn30Days(expiringPoints)
             .nearestExpiryDate(nearestExpiry)
+            .totalVisits(visits)
+            .nextTier(nextTier)
+            .remainingVisits(remainingVisits)
+            .silverThreshold(silverThreshold)
+            .goldThreshold(goldThreshold)
+            .platinumThreshold(platinumThreshold)
+            .redeemPointsFor10k(activeTierConfig.getRedeemPointsFor10k())
+            .redeemPointsFreeBasic(activeTierConfig.getRedeemPointsFreeBasic())
+            .redeemPointsFreePremium(activeTierConfig.getRedeemPointsFreePremium())
+            .redeemPointsAddon(activeTierConfig.getRedeemPointsAddon())
             .build();
     }
 
@@ -423,10 +472,31 @@ public class LoyaltyService {
      */
     private void checkAndUpdateTier(Customer customer) {
         int visits = customer.getTotalVisits();
-        Tier newTier = visits >= 50 ? Tier.PLATINUM
-                     : visits >= 25 ? Tier.GOLD
-                     : visits >= 10 ? Tier.SILVER
-                                    : Tier.MEMBER;
+        
+        // Nạp động các ngưỡng từ cấu hình hệ thống
+        SystemConfig config = adminConfigService.getSystemConfig();
+        List<TierRule> rules = config.getTierRules();
+        
+        int silverThreshold = 10;
+        int goldThreshold = 25;
+        int platinumThreshold = 50;
+
+        if (rules != null) {
+            for (TierRule rule : rules) {
+                if ("silver".equalsIgnoreCase(rule.getTier())) {
+                    silverThreshold = rule.getThreshold();
+                } else if ("gold".equalsIgnoreCase(rule.getTier())) {
+                    goldThreshold = rule.getThreshold();
+                } else if ("platinum".equalsIgnoreCase(rule.getTier())) {
+                    platinumThreshold = rule.getThreshold();
+                }
+            }
+        }
+
+        Tier newTier = visits >= platinumThreshold ? Tier.PLATINUM
+                     : visits >= goldThreshold ? Tier.GOLD
+                     : visits >= silverThreshold ? Tier.SILVER
+                                                 : Tier.MEMBER;
 
         if (newTier != customer.getTier()) {
             log.info("Khách {} đổi tier {} → {}",

@@ -10,6 +10,7 @@ public class PromotionRequest {
     private String name;
     private String promoType;
     private BigDecimal value;
+    private BigDecimal maxDiscount;
     private Integer usageLimit;
     private String targetTiers;
 

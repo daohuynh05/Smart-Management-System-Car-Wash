@@ -247,17 +247,20 @@ public class BookingService {
                 throw new BusinessException("Hạng thành viên của bạn không đủ điều kiện sử dụng mã này");
             }
 
-            if (promotion.getPromoType() == com.autowash.autowash_pro.enums.PromoType.DISCOUNT) {
-                BigDecimal promoVal = promotion.getValue();
-                if (promoVal.compareTo(BigDecimal.valueOf(100)) <= 0) {
-                    discount = total.multiply(promoVal).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
-                } else {
-                    discount = promoVal;
+            // Kiểm tra xem khách hàng này đã dùng mã khuyến mãi này trong một booking hợp lệ nào chưa
+            if (bookingRepository.existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(
+                    customer.getCustomerId(), promotion.getPromoId(), BookingStatus.CANCELLED)) {
+                throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi này rồi");
+            }
+
+            BigDecimal promoVal = promotion.getValue();
+            if (promoVal.compareTo(BigDecimal.valueOf(100)) <= 0) {
+                discount = total.multiply(promoVal).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                if (promotion.getMaxDiscount() != null && discount.compareTo(promotion.getMaxDiscount()) > 0) {
+                    discount = promotion.getMaxDiscount();
                 }
-            } else if (promotion.getPromoType() == com.autowash.autowash_pro.enums.PromoType.FREE_WASH) {
-                discount = total;
-            } else if (promotion.getPromoType() == com.autowash.autowash_pro.enums.PromoType.ADD_ON) {
-                discount = promotion.getValue();
+            } else {
+                discount = promoVal;
             }
 
             if (discount.compareTo(total) > 0) {
@@ -414,11 +417,11 @@ public class BookingService {
         if (oldStatus != BookingStatus.DONE && newStatus == BookingStatus.DONE) {
             if (savedBooking.getCustomer() != null) {
 
-                BigDecimal amountPaid = savedBooking.getTotalAmount() != null 
-                        ? savedBooking.getTotalAmount() 
-                        : (savedBooking.getServiceType() != null 
-                            ? BigDecimal.valueOf(savedBooking.getServiceType().getBasePrice()) 
-                            : new BigDecimal("50000"));
+                BigDecimal amountPaid = savedBooking.getTotalAmount() != null
+                        ? savedBooking.getTotalAmount()
+                        : (savedBooking.getServiceType() != null
+                                ? BigDecimal.valueOf(savedBooking.getServiceType().getBasePrice())
+                                : new BigDecimal("50000"));
 
                 int totalPoints = 0;
                 if (savedBooking.getBookingServices() != null) {

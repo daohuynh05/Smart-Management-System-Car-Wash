@@ -50,6 +50,7 @@ public class PromotionService {
         }
 
         promotion.setValue(request.getValue());
+        promotion.setMaxDiscount(request.getMaxDiscount());
         promotion.setUsageLimit(request.getUsageLimit());
 
         promotion.setTargetTiers(request.getTargetTiers());

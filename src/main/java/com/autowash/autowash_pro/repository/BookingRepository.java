@@ -49,4 +49,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     int countByScheduledAtAndStatusIn(LocalDateTime scheduledAt, List<BookingStatus> statuses);
 
     boolean existsByVehicle_VehicleId(UUID vehicleId);
+
+    boolean existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(UUID customerId, UUID promoId, BookingStatus status);
 }

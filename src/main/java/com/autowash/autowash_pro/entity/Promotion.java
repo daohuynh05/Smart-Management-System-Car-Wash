@@ -56,6 +56,9 @@ public class Promotion {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal value;
 
+    @Column(name = "max_discount", precision = 10, scale = 2)
+    private BigDecimal maxDiscount;
+
     @Column(name = "starts_at", nullable = false)
     private LocalDateTime startsAt;
 
