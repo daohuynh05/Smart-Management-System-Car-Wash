@@ -2,8 +2,6 @@ package com.autowash.autowash_pro.dto.request.booking;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-
-import com.autowash.autowash_pro.enums.ServiceType;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import jakarta.validation.constraints.Future;
@@ -24,8 +22,11 @@ public class CreateBookingRequest {
     @JsonDeserialize(using = LenientLocalDateTimeDeserializer.class)
     private LocalDateTime scheduledAt;
 
-    @NotNull(message = "serviceType không được để trống")
-    private ServiceType serviceType;
+    private java.util.List<UUID> serviceIds;
+
+    private UUID promoId;
+
+    private int usedPoints;
 
     @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
     private String notes;

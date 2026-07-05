@@ -12,6 +12,8 @@ import com.autowash.autowash_pro.enums.RedeemType;
 import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
+import com.autowash.autowash_pro.entity.SystemConfig;
+import com.autowash.autowash_pro.entity.TierRule;
 import com.autowash.autowash_pro.repository.CustomerPointsRepository;
 import com.autowash.autowash_pro.repository.CustomerRepository;
 import com.autowash.autowash_pro.repository.LoyaltyTierConfigRepository;
@@ -39,6 +41,7 @@ public class LoyaltyService {
     private final CustomerPointsRepository customerPointsRepository;
     private final LoyaltyTierConfigRepository loyaltyTierConfigRepository;
     private final NotificationService notificationService;
+    private final AdminConfigService adminConfigService;
 
     // =========================================================================
     // Admin: Xem cấu hình điểm thưởng
@@ -70,19 +73,19 @@ public class LoyaltyService {
 
         // Tạo config mới
         LoyaltyTierConfig newConfig = LoyaltyTierConfig.builder()
-            .vndPerPoint(request.getVndPerPoint())
-            .multiplierMember(request.getMultiplierMember())
-            .multiplierSilver(request.getMultiplierSilver())
-            .multiplierGold(request.getMultiplierGold())
-            .multiplierPlatinum(request.getMultiplierPlatinum())
-            .pointExpiryMonths(request.getPointExpiryMonths())
-            .redeemPointsFor10k(request.getRedeemPointsFor10k())
-            .redeemPointsFreeBasic(request.getRedeemPointsFreeBasic())
-            .redeemPointsFreePremium(request.getRedeemPointsFreePremium())
-            .redeemPointsAddon(request.getRedeemPointsAddon())
-            .active(true)
-            .updatedBy(admin.getCustomerId())
-            .build();
+                .vndPerPoint(request.getVndPerPoint())
+                .multiplierMember(request.getMultiplierMember())
+                .multiplierSilver(request.getMultiplierSilver())
+                .multiplierGold(request.getMultiplierGold())
+                .multiplierPlatinum(request.getMultiplierPlatinum())
+                .pointExpiryMonths(request.getPointExpiryMonths())
+                .redeemPointsFor10k(request.getRedeemPointsFor10k())
+                .redeemPointsFreeBasic(request.getRedeemPointsFreeBasic())
+                .redeemPointsFreePremium(request.getRedeemPointsFreePremium())
+                .redeemPointsAddon(request.getRedeemPointsAddon())
+                .active(true)
+                .updatedBy(admin.getCustomerId())
+                .build();
 
         loyaltyTierConfigRepository.save(newConfig);
         log.info("[Admin {}] Đã cập nhật tier config: {} VND/point", admin.getCustomerId(), request.getVndPerPoint());
@@ -99,22 +102,27 @@ public class LoyaltyService {
         Customer customer = findCustomerById(request.getCustomerId());
         LoyaltyTierConfig config = findActiveConfig();
 
-        // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier
-        double multiplier = getTierMultiplier(config, customer.getTier());
-        int points = (int) (request.getAmountPaid()
-            .divide(config.getVndPerPoint(), 4, RoundingMode.FLOOR)
-            .doubleValue() * multiplier);
+        int points;
+        if (request.getCustomPoints() != null && request.getCustomPoints() > 0) {
+            points = request.getCustomPoints();
+        } else {
+            // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier
+            double multiplier = getTierMultiplier(config, customer.getTier());
+            points = (int) (request.getAmountPaid()
+                    .divide(config.getVndPerPoint(), 4, RoundingMode.FLOOR)
+                    .doubleValue() * multiplier);
+        }
 
         if (points <= 0) {
             log.debug("Giao dịch {} không đủ điều kiện tích điểm (amountPaid={})",
-                request.getWashId(), request.getAmountPaid());
+                    request.getWashId(), request.getAmountPaid());
             return EarnPointsResponse.builder()
-                .customerId(customer.getCustomerId())
-                .pointsEarned(0)
-                .newBalance(customer.getTotalPoints())
-                .newTier(customer.getTier().name())
-                .message("Số tiền quá nhỏ để tích điểm")
-                .build();
+                    .customerId(customer.getCustomerId())
+                    .pointsEarned(0)
+                    .newBalance(customer.getTotalPoints())
+                    .newTier(customer.getTier().name())
+                    .message("Số tiền quá nhỏ để tích điểm")
+                    .build();
         }
 
         // Cập nhật số dư khách hàng
@@ -123,17 +131,20 @@ public class LoyaltyService {
         customer.setLifetimePoints(customer.getLifetimePoints() + points);
         customer.setTotalVisits(customer.getTotalVisits() + 1);
         customer.setLastVisitAt(LocalDateTime.now());
+        if (request.getAmountPaid() != null) {
+            customer.setTotalSpend(customer.getTotalSpend().add(request.getAmountPaid()));
+        }
 
         // Ghi log giao dịch điểm
         CustomerPoints pointLog = CustomerPoints.builder()
-            .customer(customer)
-            .type(PointType.EARN)
-            .points(points)
-            .balanceAfter(newBalance)
-            .referenceId(request.getWashId())
-            .description(String.format("Tích điểm rửa xe %.0f VND", request.getAmountPaid()))
-            .expiresAt(LocalDateTime.now().plusMonths(config.getPointExpiryMonths()))
-            .build();
+                .customer(customer)
+                .type(PointType.EARN)
+                .points(points)
+                .balanceAfter(newBalance)
+                .referenceId(request.getWashId())
+                .description(String.format("Tích điểm rửa xe %.0f VND", request.getAmountPaid()))
+                .expiresAt(LocalDateTime.now().plusMonths(config.getPointExpiryMonths()))
+                .build();
 
         customerPointsRepository.save(pointLog);
 
@@ -147,15 +158,15 @@ public class LoyaltyService {
         }
 
         log.info("Khách {} tích được {} điểm | amountPaid={} | tier={}",
-            customer.getCustomerId(), points, request.getAmountPaid(), customer.getTier());
+                customer.getCustomerId(), points, request.getAmountPaid(), customer.getTier());
 
         return EarnPointsResponse.builder()
-            .customerId(customer.getCustomerId())
-            .pointsEarned(points)
-            .newBalance(customer.getTotalPoints())
-            .newTier(customer.getTier().name())
-            .message(String.format("Tích thành công %d điểm", points))
-            .build();
+                .customerId(customer.getCustomerId())
+                .pointsEarned(points)
+                .newBalance(customer.getTotalPoints())
+                .newTier(customer.getTier().name())
+                .message(String.format("Tích thành công %d điểm", points))
+                .build();
     }
 
     // =========================================================================
@@ -164,7 +175,7 @@ public class LoyaltyService {
     // =========================================================================
 
     public RedeemPointsResponse redeemPoints(RedeemPointsRequest request,
-                                               String currentUserPhone) {
+            String currentUserPhone) {
         validateCustomerAccess(request.getCustomerId(), currentUserPhone);
         Customer customer = findCustomerById(request.getCustomerId());
         LoyaltyTierConfig config = findActiveConfig();
@@ -174,9 +185,8 @@ public class LoyaltyService {
         // Kiểm tra đủ điểm không
         if (customer.getTotalPoints() < cost) {
             throw new BusinessException(String.format(
-                "Không đủ điểm. Cần %d điểm, bạn chỉ có %d điểm",
-                cost, customer.getTotalPoints()
-            ));
+                    "Không đủ điểm. Cần %d điểm, bạn chỉ có %d điểm",
+                    cost, customer.getTotalPoints()));
         }
 
         // Trừ điểm theo FIFO — điểm sắp hết hạn nhất bị trừ trước
@@ -184,14 +194,14 @@ public class LoyaltyService {
 
         // Ghi log giao dịch REDEEM
         CustomerPoints redeemLog = CustomerPoints.builder()
-            .customer(customer)
-            .type(PointType.REDEEM)
-            .points(-cost)
-            .balanceAfter(customer.getTotalPoints())
-            .referenceId(request.getReferenceId())
-            .description("Đổi thưởng: " + request.getRedeemType().name())
-            .expiresAt(LocalDateTime.now().plusYears(99)) // REDEEM không bao giờ expire
-            .build();
+                .customer(customer)
+                .type(PointType.REDEEM)
+                .points(-cost)
+                .balanceAfter(customer.getTotalPoints())
+                .referenceId(request.getReferenceId())
+                .description("Đổi thưởng: " + request.getRedeemType().name())
+                .expiresAt(LocalDateTime.now().plusYears(99)) // REDEEM không bao giờ expire
+                .build();
 
         customerPointsRepository.save(redeemLog);
         customerRepository.save(customer);
@@ -199,12 +209,12 @@ public class LoyaltyService {
         log.info("Khách {} đổi {} điểm lấy {}", customer.getCustomerId(), cost, request.getRedeemType());
 
         return RedeemPointsResponse.builder()
-            .customerId(customer.getCustomerId())
-            .redeemType(request.getRedeemType())
-            .pointsUsed(cost)
-            .remainingBalance(customer.getTotalPoints())
-            .message(String.format("Đổi thưởng thành công, đã trừ %d điểm", cost))
-            .build();
+                .customerId(customer.getCustomerId())
+                .redeemType(request.getRedeemType())
+                .pointsUsed(cost)
+                .remainingBalance(customer.getTotalPoints())
+                .message(String.format("Đổi thưởng thành công, đã trừ %d điểm", cost))
+                .build();
     }
 
     // =========================================================================
@@ -220,21 +230,67 @@ public class LoyaltyService {
         // Điểm sắp hết hạn trong 30 ngày tới
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime in30Days = now.plusDays(30);
-        List<CustomerPoints> expiringList =
-            customerPointsRepository.findExpiringEarnPoints(customerId, now, in30Days);
+        List<CustomerPoints> expiringList = customerPointsRepository.findExpiringEarnPoints(customerId, now, in30Days);
 
         int expiringPoints = expiringList.stream().mapToInt(CustomerPoints::getPoints).sum();
         LocalDateTime nearestExpiry = expiringList.isEmpty() ? null : expiringList.get(0).getExpiresAt();
 
+        // Tính toán tiến trình thăng hạng dựa trên số lượt rửa xe (Visits) từ cấu hình
+        // động
+        SystemConfig systemConfig = adminConfigService.getSystemConfig();
+        List<TierRule> rules = systemConfig.getTierRules();
+
+        int silverThreshold = 10;
+        int goldThreshold = 25;
+        int platinumThreshold = 50;
+
+        if (rules != null) {
+            for (TierRule rule : rules) {
+                if ("silver".equalsIgnoreCase(rule.getTier())) {
+                    silverThreshold = rule.getThreshold();
+                } else if ("gold".equalsIgnoreCase(rule.getTier())) {
+                    goldThreshold = rule.getThreshold();
+                } else if ("platinum".equalsIgnoreCase(rule.getTier())) {
+                    platinumThreshold = rule.getThreshold();
+                }
+            }
+        }
+
+        int visits = customer.getTotalVisits();
+        String nextTier = "";
+        int remainingVisits = 0;
+        if (customer.getTier() == Tier.MEMBER) {
+            nextTier = "SILVER";
+            remainingVisits = Math.max(0, silverThreshold - visits);
+        } else if (customer.getTier() == Tier.SILVER) {
+            nextTier = "GOLD";
+            remainingVisits = Math.max(0, goldThreshold - visits);
+        } else if (customer.getTier() == Tier.GOLD) {
+            nextTier = "PLATINUM";
+            remainingVisits = Math.max(0, platinumThreshold - visits);
+        }
+
+        LoyaltyTierConfig activeTierConfig = findActiveConfig();
+
         return PointBalanceResponse.builder()
-            .customerId(customerId)
-            .fullName(customer.getFullName())
-            .tier(customer.getTier().name())
-            .currentPoints(customer.getTotalPoints())
-            .lifetimePoints(customer.getLifetimePoints())
-            .expiringPointsIn30Days(expiringPoints)
-            .nearestExpiryDate(nearestExpiry)
-            .build();
+                .customerId(customerId)
+                .fullName(customer.getFullName())
+                .tier(customer.getTier().name())
+                .currentPoints(customer.getTotalPoints())
+                .lifetimePoints(customer.getLifetimePoints())
+                .expiringPointsIn30Days(expiringPoints)
+                .nearestExpiryDate(nearestExpiry)
+                .totalVisits(visits)
+                .nextTier(nextTier)
+                .remainingVisits(remainingVisits)
+                .silverThreshold(silverThreshold)
+                .goldThreshold(goldThreshold)
+                .platinumThreshold(platinumThreshold)
+                .redeemPointsFor10k(activeTierConfig.getRedeemPointsFor10k())
+                .redeemPointsFreeBasic(activeTierConfig.getRedeemPointsFreeBasic())
+                .redeemPointsFreePremium(activeTierConfig.getRedeemPointsFreePremium())
+                .redeemPointsAddon(activeTierConfig.getRedeemPointsAddon())
+                .build();
     }
 
     // =========================================================================
@@ -244,15 +300,15 @@ public class LoyaltyService {
 
     @Transactional(readOnly = true)
     public Page<PointHistoryResponse> getPointHistory(UUID customerId,
-                                                      Pageable pageable,
-                                                      String currentUserPhone) {
+            Pageable pageable,
+            String currentUserPhone) {
         validateCustomerAccess(customerId, currentUserPhone);
         if (!customerRepository.existsById(customerId)) {
             throw new ResourceNotFoundException("Không tìm thấy khách hàng: " + customerId);
         }
         return customerPointsRepository
-            .findByCustomer_CustomerIdOrderByCreatedAtDesc(customerId, pageable)
-            .map(this::mapToPointHistoryResponse);
+                .findByCustomer_CustomerIdOrderByCreatedAtDesc(customerId, pageable)
+                .map(this::mapToPointHistoryResponse);
     }
 
     // =========================================================================
@@ -284,8 +340,8 @@ public class LoyaltyService {
 
     @Scheduled(cron = "0 0 0 * * *")
     public void expireOldPoints() {
-        List<CustomerPoints> expiredList =
-            customerPointsRepository.findExpiredEarnPoints(PointType.EARN, LocalDateTime.now());
+        List<CustomerPoints> expiredList = customerPointsRepository.findExpiredEarnPoints(PointType.EARN,
+                LocalDateTime.now());
 
         for (CustomerPoints expired : expiredList) {
             Customer customer = expired.getCustomer();
@@ -294,14 +350,14 @@ public class LoyaltyService {
 
             // Ghi log EXPIRE
             CustomerPoints expireLog = CustomerPoints.builder()
-                .customer(customer)
-                .type(PointType.EXPIRE)
-                .points(-deduct)
-                .balanceAfter(customer.getTotalPoints())
-                .referenceId(expired.getPointId())
-                .description("Điểm hết hạn (tích ngày " + expired.getCreatedAt().toLocalDate() + ")")
-                .expiresAt(LocalDateTime.now())
-                .build();
+                    .customer(customer)
+                    .type(PointType.EXPIRE)
+                    .points(-deduct)
+                    .balanceAfter(customer.getTotalPoints())
+                    .referenceId(expired.getPointId())
+                    .description("Điểm hết hạn (tích ngày " + expired.getCreatedAt().toLocalDate() + ")")
+                    .expiresAt(LocalDateTime.now())
+                    .build();
 
             // Đánh dấu bản gốc points = 0 để không expire lại
             expired.setPoints(0);
@@ -332,23 +388,20 @@ public class LoyaltyService {
 
     private LoyaltyTierConfig findActiveConfig() {
         return loyaltyTierConfigRepository.findByActiveTrue()
-            .orElseThrow(() -> new IllegalStateException(
-                "Chưa có cấu hình điểm nào active. Vui lòng liên hệ Admin thiết lập."
-            ));
+                .orElseThrow(() -> new IllegalStateException(
+                        "Chưa có cấu hình điểm nào active. Vui lòng liên hệ Admin thiết lập."));
     }
 
     private Customer findCustomerById(UUID customerId) {
         return customerRepository.findById(customerId)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Không tìm thấy khách hàng: " + customerId
-            ));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy khách hàng: " + customerId));
     }
 
     private Customer findCustomerByPhone(String phone) {
         return customerRepository.findByPhone(phone)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Không tìm thấy admin: " + phone
-            ));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy admin: " + phone));
     }
 
     private void validateCustomerAccess(UUID customerId, String currentUserPhone) {
@@ -368,25 +421,19 @@ public class LoyaltyService {
 
     private double getTierMultiplier(LoyaltyTierConfig config, Tier tier) {
         return switch (tier) {
-            case SILVER   -> config.getMultiplierSilver();
-            case GOLD     -> config.getMultiplierGold();
+            case SILVER -> config.getMultiplierSilver();
+            case GOLD -> config.getMultiplierGold();
             case PLATINUM -> config.getMultiplierPlatinum();
-            default       -> config.getMultiplierMember();
+            default -> config.getMultiplierMember();
         };
     }
 
     private int calculateRedeemCost(LoyaltyTierConfig config, RedeemType type, Tier tier) {
         return switch (type) {
-            case DISCOUNT_10K  -> config.getRedeemPointsFor10k();
-            case FREE_BASIC    -> config.getRedeemPointsFreeBasic();
-            case FREE_PREMIUM  -> {
-                // TODO: [Dev-4] Confirm với team — FREE_PREMIUM chỉ cho Gold/Platinum
-                if (tier == Tier.MEMBER || tier == Tier.SILVER) {
-                    throw new BusinessException("Rửa xe Premium miễn phí chỉ dành cho thành viên Gold và Platinum");
-                }
-                yield config.getRedeemPointsFreePremium();
-            }
-            case ADDON         -> config.getRedeemPointsAddon();
+            case DISCOUNT_10K -> config.getRedeemPointsFor10k();
+            case FREE_BASIC -> config.getRedeemPointsFreeBasic();
+            case FREE_PREMIUM -> config.getRedeemPointsFreePremium();
+            case ADDON -> config.getRedeemPointsAddon();
         };
     }
 
@@ -394,13 +441,14 @@ public class LoyaltyService {
      * Trừ điểm theo FIFO — điểm sắp hết hạn nhất bị trừ trước.
      * Đảm bảo khách không mất điểm còn hiệu lực lâu dài.
      */
-    private void deductPointsFifo(Customer customer, int totalCost) {
+    public void deductPointsFifo(Customer customer, int totalCost) {
         List<CustomerPoints> fifoList = customerPointsRepository
-            .findActiveEarnPointsFifo(customer.getCustomerId(), LocalDateTime.now());
+                .findActiveEarnPointsFifo(customer.getCustomerId(), LocalDateTime.now());
 
         int remaining = totalCost;
         for (CustomerPoints pointRecord : fifoList) {
-            if (remaining <= 0) break;
+            if (remaining <= 0)
+                break;
             int use = Math.min(pointRecord.getPoints(), remaining);
             pointRecord.setPoints(pointRecord.getPoints() - use);
             remaining -= use;
@@ -418,14 +466,35 @@ public class LoyaltyService {
      */
     private void checkAndUpdateTier(Customer customer) {
         int visits = customer.getTotalVisits();
-        Tier newTier = visits >= 50 ? Tier.PLATINUM
-                     : visits >= 25 ? Tier.GOLD
-                     : visits >= 10 ? Tier.SILVER
-                                    : Tier.MEMBER;
+
+        // Nạp động các ngưỡng từ cấu hình hệ thống
+        SystemConfig config = adminConfigService.getSystemConfig();
+        List<TierRule> rules = config.getTierRules();
+
+        int silverThreshold = 10;
+        int goldThreshold = 25;
+        int platinumThreshold = 50;
+
+        if (rules != null) {
+            for (TierRule rule : rules) {
+                if ("silver".equalsIgnoreCase(rule.getTier())) {
+                    silverThreshold = rule.getThreshold();
+                } else if ("gold".equalsIgnoreCase(rule.getTier())) {
+                    goldThreshold = rule.getThreshold();
+                } else if ("platinum".equalsIgnoreCase(rule.getTier())) {
+                    platinumThreshold = rule.getThreshold();
+                }
+            }
+        }
+
+        Tier newTier = visits >= platinumThreshold ? Tier.PLATINUM
+                : visits >= goldThreshold ? Tier.GOLD
+                        : visits >= silverThreshold ? Tier.SILVER
+                                : Tier.MEMBER;
 
         if (newTier != customer.getTier()) {
             log.info("Khách {} đổi tier {} → {}",
-                customer.getCustomerId(), customer.getTier(), newTier);
+                    customer.getCustomerId(), customer.getTier(), newTier);
             customer.setTier(newTier);
         }
     }
@@ -434,32 +503,32 @@ public class LoyaltyService {
 
     private TierConfigResponse mapToTierConfigResponse(LoyaltyTierConfig config) {
         return TierConfigResponse.builder()
-            .configId(config.getConfigId())
-            .vndPerPoint(config.getVndPerPoint())
-            .multiplierMember(config.getMultiplierMember())
-            .multiplierSilver(config.getMultiplierSilver())
-            .multiplierGold(config.getMultiplierGold())
-            .multiplierPlatinum(config.getMultiplierPlatinum())
-            .pointExpiryMonths(config.getPointExpiryMonths())
-            .redeemPointsFor10k(config.getRedeemPointsFor10k())
-            .redeemPointsFreeBasic(config.getRedeemPointsFreeBasic())
-            .redeemPointsFreePremium(config.getRedeemPointsFreePremium())
-            .redeemPointsAddon(config.getRedeemPointsAddon())
-            .updatedAt(config.getUpdatedAt())
-            .updatedBy(config.getUpdatedBy())
-            .build();
+                .configId(config.getConfigId())
+                .vndPerPoint(config.getVndPerPoint())
+                .multiplierMember(config.getMultiplierMember())
+                .multiplierSilver(config.getMultiplierSilver())
+                .multiplierGold(config.getMultiplierGold())
+                .multiplierPlatinum(config.getMultiplierPlatinum())
+                .pointExpiryMonths(config.getPointExpiryMonths())
+                .redeemPointsFor10k(config.getRedeemPointsFor10k())
+                .redeemPointsFreeBasic(config.getRedeemPointsFreeBasic())
+                .redeemPointsFreePremium(config.getRedeemPointsFreePremium())
+                .redeemPointsAddon(config.getRedeemPointsAddon())
+                .updatedAt(config.getUpdatedAt())
+                .updatedBy(config.getUpdatedBy())
+                .build();
     }
 
     private PointHistoryResponse mapToPointHistoryResponse(CustomerPoints points) {
         return PointHistoryResponse.builder()
-            .pointId(points.getPointId())
-            .type(points.getType())
-            .points(points.getPoints())
-            .balanceAfter(points.getBalanceAfter())
-            .description(points.getDescription())
-            .referenceId(points.getReferenceId())
-            .expiresAt(points.getExpiresAt())
-            .createdAt(points.getCreatedAt())
-            .build();
+                .pointId(points.getPointId())
+                .type(points.getType())
+                .points(points.getPoints())
+                .balanceAfter(points.getBalanceAfter())
+                .description(points.getDescription())
+                .referenceId(points.getReferenceId())
+                .expiresAt(points.getExpiresAt())
+                .createdAt(points.getCreatedAt())
+                .build();
     }
 }
