@@ -1,20 +1,15 @@
 package com.autowash.autowash_pro.controller;
 
 import com.autowash.autowash_pro.dto.request.auth.ChangePasswordRequest;
-import com.autowash.autowash_pro.dto.request.auth.MessageResponse;
-import com.autowash.autowash_pro.dto.response.PromotionResponse;
+import com.autowash.autowash_pro.dto.response.auth.MessageResponse;
 import com.autowash.autowash_pro.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,14 +28,5 @@ public class CustomerProfileController {
             @RequestBody @Valid ChangePasswordRequest request) {
         customerService.changePassword(id, request);
         return ResponseEntity.ok(new MessageResponse("Đổi mật khẩu thành công!"));
-    }
-
-    @GetMapping("/{id}/promotions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
-    @Operation(summary = "Xem danh sách chương trình khuyến mãi khả dụng của khách hàng")
-    public ResponseEntity<List<PromotionResponse>> getPromotions(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(customerService.getPromotionsForCustomer(id, userDetails.getUsername()));
     }
 }

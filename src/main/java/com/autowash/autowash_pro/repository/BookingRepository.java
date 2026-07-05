@@ -14,30 +14,44 @@ import com.autowash.autowash_pro.enums.BookingStatus;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
-    @EntityGraph(attributePaths = {"customer", "vehicle", "washHistory"})
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
     List<Booking> findByCustomer_CustomerId(UUID customerId);
 
-    @EntityGraph(attributePaths = {"customer", "vehicle", "washHistory"})
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
     List<Booking> findByCustomer_CustomerIdOrderByScheduledAtDesc(UUID customerId);
 
-    @EntityGraph(attributePaths = {"customer", "vehicle", "washHistory"})
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
     List<Booking> findByStatus(BookingStatus status);
 
-    @EntityGraph(attributePaths = {"customer", "vehicle", "washHistory"})
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
     List<Booking> findByStatusOrderByScheduledAtAsc(BookingStatus status);
 
-    @EntityGraph(attributePaths = {"customer", "vehicle", "washHistory"})
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
     List<Booking> findByCustomer_CustomerIdAndStatus(UUID customerId, BookingStatus status);
 
     int countByCustomer_CustomerIdAndStatus(UUID customerId, BookingStatus status);
 
-        @EntityGraph(attributePaths = {"customer", "vehicle"})
+    @EntityGraph(attributePaths = { "customer", "vehicle" })
     List<Booking> findByScheduledAtBetween(LocalDateTime from, LocalDateTime to);
 
-    @EntityGraph(attributePaths = {"customer", "vehicle"})
+    @EntityGraph(attributePaths = { "customer", "vehicle" })
     List<Booking> findByScheduledAtBetweenOrderByPriorityScoreDescCreatedAtAsc(LocalDateTime from, LocalDateTime to);
+
+    @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
+    List<Booking> findByStatusOrderByScheduledAtDesc(BookingStatus status);
+
+    @EntityGraph(attributePaths = { "customer", "vehicle" })
+    List<Booking> findByScheduledAtBetweenOrderByScheduledAtDesc(LocalDateTime from, LocalDateTime to);
+
+    @EntityGraph(attributePaths = { "customer", "vehicle" })
+    List<Booking> findAllByOrderByScheduledAtDesc();
 
     int countByScheduledAtAndStatusIn(LocalDateTime scheduledAt, List<BookingStatus> statuses);
 
     boolean existsByVehicle_VehicleId(UUID vehicleId);
+
+    boolean existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(UUID customerId, UUID promoId, BookingStatus status);
+
+    @EntityGraph(attributePaths = { "bookingServices", "bookingServices.washService" })
+    List<Booking> findByVehicle_VehicleIdAndStatusOrderByScheduledAtDesc(UUID vehicleId, BookingStatus status);
 }

@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.autowash.autowash_pro.dto.request.vehicle.VehicleRequest;
 import com.autowash.autowash_pro.dto.response.vehicle.VehicleResponse;
+import com.autowash.autowash_pro.entity.Booking;
+import com.autowash.autowash_pro.enums.BookingStatus;
 import com.autowash.autowash_pro.entity.Customer;
 import com.autowash.autowash_pro.entity.Vehicle;
 import com.autowash.autowash_pro.exception.BusinessException;
@@ -26,6 +28,42 @@ public class VehicleService {
     private final CustomerRepository customerRepository;
     private final BookingRepository bookingRepository;
 
+    private VehicleResponse mapToResponse(Vehicle vehicle) {
+        List<Booking> bookings = bookingRepository.findByVehicle_VehicleIdAndStatusOrderByScheduledAtDesc(
+            vehicle.getVehicleId(), BookingStatus.DONE);
+        
+        String lastWashService = null;
+        String lastWashDate = null;
+        
+        if (!bookings.isEmpty()) {
+            Booking lastBooking = bookings.get(0);
+            if (lastBooking.getBookingServices() != null && !lastBooking.getBookingServices().isEmpty()) {
+                lastWashService = lastBooking.getBookingServices().stream()
+                    .map(bs -> bs.getWashService().getName())
+                    .collect(java.util.stream.Collectors.joining(", "));
+            } else if (lastBooking.getServiceType() != null) {
+                lastWashService = lastBooking.getServiceType().name();
+            }
+            
+            if (lastBooking.getScheduledAt() != null) {
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+                lastWashDate = lastBooking.getScheduledAt().format(formatter);
+            }
+        }
+        
+        return VehicleResponse.builder()
+            .vehicleId(vehicle.getVehicleId())
+            .licensePlate(vehicle.getLicensePlate())
+            .vehicleType(vehicle.getVehicleType())
+            .brand(vehicle.getBrand())
+            .color(vehicle.getColor())
+            .primary(vehicle.isPrimary())
+            .createdAt(vehicle.getCreatedAt())
+            .lastWashService(lastWashService)
+            .lastWashDate(lastWashDate)
+            .build();
+    }
+
     @Transactional(readOnly = true)
     public List<VehicleResponse> getMyVehicles(String phone) {
         Customer customer = getCustomer(phone);
@@ -33,7 +71,7 @@ public class VehicleService {
             .findByCustomer_CustomerIdOrderByCreatedAtDesc(
                 customer.getCustomerId())
             .stream()
-            .map(VehicleResponse::from)
+            .map(this::mapToResponse)
             .toList();
     }
 
@@ -65,7 +103,7 @@ public class VehicleService {
             .isPrimary(shouldBePrimary)
             .build();
 
-        return VehicleResponse.from(vehicleRepository.save(vehicle));
+        return mapToResponse(vehicleRepository.save(vehicle));
     }
 
     @Transactional
@@ -92,7 +130,7 @@ public class VehicleService {
         vehicle.setColor(trim(request.getColor()));
         vehicle.setPrimary(shouldBePrimary || vehicle.isPrimary());
 
-        return VehicleResponse.from(vehicleRepository.save(vehicle));
+        return mapToResponse(vehicleRepository.save(vehicle));
     }
 
     @Transactional
@@ -129,7 +167,7 @@ public class VehicleService {
         clearPrimaryVehicle(customer.getCustomerId());
         vehicle.setPrimary(true);
 
-        return VehicleResponse.from(vehicleRepository.save(vehicle));
+        return mapToResponse(vehicleRepository.save(vehicle));
     }
 
     private Customer getCustomer(String phone) {

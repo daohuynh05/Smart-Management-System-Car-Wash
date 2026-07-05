@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.autowash.autowash_pro.entity.Article;
+import com.autowash.autowash_pro.enums.ArticleCategory;
 import com.autowash.autowash_pro.enums.ArticleStatus;
 import com.autowash.autowash_pro.repository.ArticleRepository;
 
@@ -104,5 +105,46 @@ public class ArticleService {
             throw new RuntimeException("Không thể xóa! Không tìm thấy bài viết với ID: " + id);
         }
         articleRepository.deleteById(id);
+    }
+
+    // 6. LUỒNG LẤY DANH SÁCH BÀI VIẾT PHÍA CLIENT
+    public List<Article> getClientArticles(String categoryStr, String search) {
+        ArticleCategory category = null;
+        if (categoryStr != null && !categoryStr.trim().isEmpty() && !categoryStr.equalsIgnoreCase("ALL")) {
+            try {
+                category = ArticleCategory.valueOf(categoryStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Bỏ qua category không hợp lệ
+            }
+        }
+        
+        boolean hasKeyword = search != null && !search.trim().isEmpty();
+        String keyword = hasKeyword ? search.trim() : null;
+
+        if (category != null) {
+            if (hasKeyword) {
+                return articleRepository.searchClientArticlesByCategory(category, keyword);
+            } else {
+                return articleRepository.findByCategoryAndStatus(category, ArticleStatus.PUBLISHED);
+            }
+        } else {
+            if (hasKeyword) {
+                return articleRepository.searchClientArticles(keyword);
+            } else {
+                return articleRepository.findByStatus(ArticleStatus.PUBLISHED);
+            }
+        }
+    }
+
+    // 7. LUỒNG LẤY CHI TIẾT BÀI VIẾT THEO SLUG
+    public Article getArticleBySlug(String slug) {
+        return articleRepository.findBySlugAndStatus(slug, ArticleStatus.PUBLISHED)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết với slug: " + slug));
+    }
+
+    // 8. LUỒNG LẤY CHI TIẾT BÀI VIẾT THEO ID
+    public Article getArticleById(UUID id) {
+        return articleRepository.findByIdAndStatus(id, ArticleStatus.PUBLISHED)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài viết với ID: " + id));
     }
 }
