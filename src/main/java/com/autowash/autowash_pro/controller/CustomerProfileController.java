@@ -1,7 +1,7 @@
 package com.autowash.autowash_pro.controller;
 
 import com.autowash.autowash_pro.dto.request.auth.ChangePasswordRequest;
-import com.autowash.autowash_pro.dto.request.auth.MessageResponse;
+import com.autowash.autowash_pro.dto.response.auth.MessageResponse;
 import com.autowash.autowash_pro.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

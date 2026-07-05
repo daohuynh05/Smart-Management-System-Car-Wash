@@ -24,6 +24,7 @@ import com.autowash.autowash_pro.entity.Booking;
 import com.autowash.autowash_pro.entity.Customer;
 import com.autowash.autowash_pro.entity.CustomerPoints;
 import com.autowash.autowash_pro.entity.Vehicle;
+import com.autowash.autowash_pro.entity.WashHistory;
 import com.autowash.autowash_pro.entity.WashService;
 import com.autowash.autowash_pro.entity.BookingWashService;
 import com.autowash.autowash_pro.enums.BookingStatus;
@@ -37,13 +38,12 @@ import com.autowash.autowash_pro.repository.BookingRepository;
 import com.autowash.autowash_pro.repository.CustomerRepository;
 import com.autowash.autowash_pro.repository.PromotionRepository;
 import com.autowash.autowash_pro.repository.VehicleRepository;
+import com.autowash.autowash_pro.repository.WashHistoryRepository;
 import com.autowash.autowash_pro.repository.WashServiceRepository;
 import com.autowash.autowash_pro.repository.BookingWashServiceRepository;
 import com.autowash.autowash_pro.repository.CustomerPointsRepository;
-import com.autowash.autowash_pro.repository.PromotionRepository;
 import com.autowash.autowash_pro.entity.Promotion;
 
-import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -124,7 +124,6 @@ public class BookingService {
     private final PromotionRepository promotionRepository;
     private final NotificationService notificationService;
     private final LoyaltyService loyaltyService;
-    private final PromotionRepository promotionRepository;
     private final CustomerPointsRepository customerPointsRepository;
 
     public BookingResponse createBooking(
@@ -263,7 +262,8 @@ public class BookingService {
             if (targetTiers != null && !targetTiers.trim().isEmpty()) {
                 for (String t : targetTiers.split(",")) {
                     try {
-                        com.autowash.autowash_pro.enums.Tier targetTier = com.autowash.autowash_pro.enums.Tier.valueOf(t.trim().toUpperCase());
+                        com.autowash.autowash_pro.enums.Tier targetTier = com.autowash.autowash_pro.enums.Tier
+                                .valueOf(t.trim().toUpperCase());
                         int rank = switch (targetTier) {
                             case MEMBER -> 1;
                             case SILVER -> 2;
@@ -551,17 +551,19 @@ public class BookingService {
                 }
 
                 if (!promotion.getTargetTierList().contains(booking.getCustomer().getTier())) {
-                    throw new BusinessException("Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
+                    throw new BusinessException(
+                            "Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
                 }
 
                 LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-                boolean alreadyUsed = washHistoryRepository.existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
-                        booking.getCustomer().getCustomerId(),
-                        promotion.getPromoType(),
-                        sevenDaysAgo
-                );
+                boolean alreadyUsed = washHistoryRepository
+                        .existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
+                                booking.getCustomer().getCustomerId(),
+                                promotion.getPromoType(),
+                                sevenDaysAgo);
                 if (alreadyUsed) {
-                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại " + promotion.getPromoType() + " trong vòng 7 ngày qua");
+                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại "
+                            + promotion.getPromoType() + " trong vòng 7 ngày qua");
                 }
 
                 discountApplied = promotion.getValue();

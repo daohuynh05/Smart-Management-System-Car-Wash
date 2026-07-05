@@ -4,20 +4,16 @@ import com.autowash.autowash_pro.dto.request.auth.ChangePasswordRequest;
 import com.autowash.autowash_pro.dto.request.customer.CustomerRequestDTO;
 import com.autowash.autowash_pro.dto.response.customer.CustomerProfileResponse;
 import com.autowash.autowash_pro.entity.Customer;
-import com.autowash.autowash_pro.entity.Promotion;
 import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
 import com.autowash.autowash_pro.repository.CustomerRepository;
-import com.autowash.autowash_pro.repository.PromotionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 import com.autowash.autowash_pro.entity.Vehicle;
 import com.autowash.autowash_pro.repository.VehicleRepository;
@@ -38,15 +34,21 @@ public class CustomerService {
     private PasswordEncoder passwordEncoder;
 
     // Lấy toàn bộ danh sách khách hàng từ database đám mây Supabase
-    public List<Customer> getAllCustomers() {}
-    // 🌟 THAY THẾ & NÂNG CẤP HÀM NÀY: Lấy danh sách khách hàng kết hợp bộ lọc Tìm kiếm và Phân hạng Tier
+    public List<Customer> getAllCustomers() {
+        return customerRepository.findAll();
+    }
+
+    // 🌟 THAY THẾ & NÂNG CẤP HÀM NÀY: Lấy danh sách khách hàng kết hợp bộ lọc Tìm
+    // kiếm và Phân hạng Tier
     public List<Customer> getAdminCustomers(String keyword, String tierStr) {
-        // 1. Nếu Admin điền từ khóa vào ô Search -> Ưu tiên tìm kiếm theo Tên hoặc Số điện thoại
+        // 1. Nếu Admin điền từ khóa vào ô Search -> Ưu tiên tìm kiếm theo Tên hoặc Số
+        // điện thoại
         if (keyword != null && !keyword.trim().isEmpty()) {
             return customerRepository.searchCustomers(keyword.trim());
         }
-        
-        // 2. Nếu Admin click chọn bộ lọc phân hạng Tier cụ thể (MEMBER, SILVER, GOLD, PLATINUM)
+
+        // 2. Nếu Admin click chọn bộ lọc phân hạng Tier cụ thể (MEMBER, SILVER, GOLD,
+        // PLATINUM)
         if (tierStr != null && !tierStr.equalsIgnoreCase("ALL")) {
             try {
                 Tier tier = Tier.valueOf(tierStr.toUpperCase());
@@ -55,7 +57,7 @@ public class CustomerService {
                 // Nếu chuỗi tier truyền lên không hợp lệ, tự động bỏ qua để rơi xuống findAll
             }
         }
-        
+
         // 3. Mặc định: Trả về toàn bộ danh sách khách hàng từ Supabase
         return customerRepository.findAll();
     }
@@ -71,7 +73,7 @@ public class CustomerService {
                 .phone(dto.getPhone())
                 .email(dto.getEmail())
                 .password("$2a$10$X8A2M6fB8z7Gk9b3C2e1o.U9kZ5g6h7i8j9k1l2m3n4o5p6q7r8s9") // Mật khẩu mặc định 123456
-                .tier(Tier.MEMBER) 
+                .tier(Tier.MEMBER)
                 .totalPoints(0)
                 .lifetimePoints(0)
                 .totalVisits(0)
@@ -97,11 +99,11 @@ public class CustomerService {
         if (dto.getFullName() != null && !dto.getFullName().isBlank()) {
             customer.setFullName(dto.getFullName());
         }
-        
+
         if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
             customer.setPhone(dto.getPhone());
         }
-        
+
         if (dto.getEmail() != null) {
             customer.setEmail(dto.getEmail());
         }
@@ -139,8 +141,7 @@ public class CustomerService {
     public CustomerProfileResponse getMyProfile(String phone) {
         Customer customer = customerRepository.findByPhone(phone)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy tài khoản với số điện thoại: " + phone
-                ));
+                        "Không tìm thấy tài khoản với số điện thoại: " + phone));
 
         return mapToProfileResponse(customer);
     }
@@ -149,8 +150,7 @@ public class CustomerService {
     public CustomerProfileResponse updateMyProfile(String phone, CustomerRequestDTO request) {
         Customer customer = customerRepository.findByPhone(phone)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                    "Không tìm thấy tài khoản với số điện thoại: " + phone
-                ));
+                        "Không tìm thấy tài khoản với số điện thoại: " + phone));
 
         if (!customer.getPhone().equals(request.getPhone())
                 && customerRepository.existsByPhone(request.getPhone())) {

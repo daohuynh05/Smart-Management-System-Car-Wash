@@ -37,23 +37,17 @@ public class AdminLoyaltyController {
     // =========================================================================
 
     @PutMapping("/tier-config")
-    @Operation(
-        summary = "Cập nhật cấu hình tỷ lệ điểm thưởng",
-        description = """
+    @Operation(summary = "Cập nhật cấu hình tỷ lệ điểm thưởng", description = """
             Admin có thể chỉnh:
             - vndPerPoint: số VND cần để tích 1 điểm (mặc định 10,000)
             - multiplierMember/Silver/Gold/Platinum: hệ số nhân điểm theo tier
             - pointExpiryMonths: số tháng trước khi điểm hết hạn (mặc định 12)
-            - redeemPoints*: số điểm cần để đổi từng loại thưởng
-            """
-    )
+            """)
     public ResponseEntity<TierConfigResponse> updateTierConfig(
             @RequestBody @Valid UpdateTierConfigRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
 
         return ResponseEntity.ok(
-            loyaltyService.updateTierConfig(request, userDetails.getUsername())
-        );
+                loyaltyService.updateTierConfig(request, userDetails.getUsername()));
     }
 }
-
