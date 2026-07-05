@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.autowash.autowash_pro.dto.request.booking.CreateBookingRequest;
-import com.autowash.autowash_pro.dto.request.loyalty.RedeemPointsRequest;
 import com.autowash.autowash_pro.dto.response.booking.AvailabilitySlotResponse;
 import com.autowash.autowash_pro.dto.response.booking.BookingResponse;
 import com.autowash.autowash_pro.entity.Booking;
@@ -29,7 +28,6 @@ import com.autowash.autowash_pro.entity.WashService;
 import com.autowash.autowash_pro.entity.BookingWashService;
 import com.autowash.autowash_pro.enums.BookingStatus;
 import com.autowash.autowash_pro.enums.PointType;
-import com.autowash.autowash_pro.enums.RedeemType;
 import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.enums.ServiceType;
 import com.autowash.autowash_pro.exception.BusinessException;
@@ -342,13 +340,6 @@ public class BookingService {
 
             if (pointsToUse > 0) {
                 // Thực hiện trừ điểm của khách hàng theo FIFO
-                // Tạo một request giả lập đổi điểm
-                RedeemPointsRequest redeemRequest = new RedeemPointsRequest();
-                redeemRequest.setCustomerId(customer.getCustomerId());
-                redeemRequest.setRedeemType(RedeemType.DISCOUNT_10K); // Tạm lấy đại diện
-                redeemRequest.setReferenceId(UUID.randomUUID()); // Mã đối chiếu
-
-                // Gọi helper trừ FIFO
                 loyaltyService.deductPointsFifo(customer, pointsToUse);
 
                 // Ghi nhận dòng log REDEEM điểm vào lịch sử
@@ -358,7 +349,7 @@ public class BookingService {
                         .type(PointType.REDEEM)
                         .points(-pointsToUse)
                         .balanceAfter(customer.getTotalPoints())
-                        .referenceId(redeemRequest.getReferenceId())
+                        .referenceId(UUID.randomUUID())
                         .description("Khấu trừ đặt lịch #" + scheduledAt.toLocalDate())
                         .expiresAt(LocalDateTime.now().plusYears(99))
                         .build();
@@ -524,6 +515,7 @@ public class BookingService {
         return updateStatus(bookingId, newStatus, null);
     }
 
+    @Transactional
     public BookingResponse updateStatus(
             UUID bookingId,
             BookingStatus newStatus,
@@ -538,7 +530,11 @@ public class BookingService {
                 throw new BusinessException("Lịch đặt này đã được hoàn tất trước đó.");
             }
 
-            BigDecimal basePrice = BigDecimal.valueOf(booking.getServiceType().getBasePrice());
+            BigDecimal basePrice = booking.getTotalAmount() != null 
+                    ? booking.getTotalAmount() 
+                    : (booking.getServiceType() != null 
+                        ? BigDecimal.valueOf(booking.getServiceType().getBasePrice()) 
+                        : BigDecimal.valueOf(50000));
             BigDecimal discountApplied = BigDecimal.ZERO;
             Promotion promotion = null;
 
@@ -551,19 +547,17 @@ public class BookingService {
                 }
 
                 if (!promotion.getTargetTierList().contains(booking.getCustomer().getTier())) {
-                    throw new BusinessException(
-                            "Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
+                    throw new BusinessException("Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
                 }
 
                 LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-                boolean alreadyUsed = washHistoryRepository
-                        .existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
-                                booking.getCustomer().getCustomerId(),
-                                promotion.getPromoType(),
-                                sevenDaysAgo);
+                boolean alreadyUsed = washHistoryRepository.existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
+                        booking.getCustomer().getCustomerId(),
+                        promotion.getPromoType(),
+                        sevenDaysAgo
+                );
                 if (alreadyUsed) {
-                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại "
-                            + promotion.getPromoType() + " trong vòng 7 ngày qua");
+                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại " + promotion.getPromoType() + " trong vòng 7 ngày qua");
                 }
 
                 discountApplied = promotion.getValue();
@@ -574,9 +568,16 @@ public class BookingService {
                 // Tăng usage_count sau khi áp dụng
                 promotion.setUsageCount(promotion.getUsageCount() + 1);
                 promotionRepository.save(promotion);
+            } else if (booking.getPromotion() != null) {
+                promotion = booking.getPromotion();
+                discountApplied = booking.getDiscountAmount() != null ? booking.getDiscountAmount() : BigDecimal.ZERO;
             }
 
-            BigDecimal amountPaid = basePrice.subtract(discountApplied);
+            BigDecimal pointsDiscount = booking.getPointsDiscountAmount() != null ? booking.getPointsDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal amountPaid = basePrice.subtract(discountApplied).subtract(pointsDiscount);
+            if (amountPaid.compareTo(BigDecimal.ZERO) < 0) {
+                amountPaid = BigDecimal.ZERO;
+            }
 
             // Tạo và lưu WashHistory
             WashHistory washHistory = WashHistory.builder()
@@ -584,7 +585,7 @@ public class BookingService {
                     .vehicle(booking.getVehicle())
                     .booking(booking)
                     .washedAt(LocalDateTime.now())
-                    .serviceType(booking.getServiceType())
+                    .serviceType(booking.getServiceType() != null ? booking.getServiceType() : ServiceType.BASIC)
                     .amountPaid(amountPaid)
                     .discountApplied(discountApplied)
                     .promo(promotion)

@@ -45,7 +45,7 @@ public class LoyaltyController {
 
     @PostMapping("/api/loyalty/redeem")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
-    @Operation(summary = "Đổi điểm lấy thưởng (DISCOUNT_10K / FREE_BASIC / FREE_PREMIUM / ADDON)")
+    @Operation(summary = "Trừ/Đổi điểm tích lũy của khách hàng")
     public ResponseEntity<RedeemPointsResponse> redeemPoints(
             @RequestBody @Valid RedeemPointsRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {

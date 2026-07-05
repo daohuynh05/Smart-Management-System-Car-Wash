@@ -1,9 +1,6 @@
 package com.autowash.autowash_pro.dto.response.loyalty;
 
 import java.util.UUID;
-
-import com.autowash.autowash_pro.enums.RedeemType;
-
 import lombok.Builder;
 import lombok.Data;
 
@@ -11,7 +8,6 @@ import lombok.Data;
 @Builder
 public class RedeemPointsResponse {
     private UUID customerId;
-    private RedeemType redeemType;
     private int pointsUsed;
     private int remainingBalance;
     private String message;

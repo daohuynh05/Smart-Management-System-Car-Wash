@@ -78,10 +78,6 @@ public class LoyaltyService {
                 .multiplierGold(request.getMultiplierGold())
                 .multiplierPlatinum(request.getMultiplierPlatinum())
                 .pointExpiryMonths(request.getPointExpiryMonths())
-                .redeemPointsFor10k(request.getRedeemPointsFor10k())
-                .redeemPointsFreeBasic(request.getRedeemPointsFreeBasic())
-                .redeemPointsFreePremium(request.getRedeemPointsFreePremium())
-                .redeemPointsAddon(request.getRedeemPointsAddon())
                 .active(true)
                 .updatedBy(admin.getCustomerId())
                 .build();
@@ -177,9 +173,8 @@ public class LoyaltyService {
             String currentUserPhone) {
         validateCustomerAccess(request.getCustomerId(), currentUserPhone);
         Customer customer = findCustomerById(request.getCustomerId());
-        LoyaltyTierConfig config = findActiveConfig();
 
-        int cost = calculateRedeemCost(config, request.getRedeemType(), customer.getTier());
+        int cost = request.getPoints();
 
         // Kiểm tra đủ điểm không
         if (customer.getTotalPoints() < cost) {
@@ -198,21 +193,20 @@ public class LoyaltyService {
                 .points(-cost)
                 .balanceAfter(customer.getTotalPoints())
                 .referenceId(request.getReferenceId())
-                .description("Đổi thưởng: " + request.getRedeemType().name())
+                .description("Thanh toán bằng điểm tích lũy")
                 .expiresAt(LocalDateTime.now().plusYears(99)) // REDEEM không bao giờ expire
                 .build();
 
         customerPointsRepository.save(redeemLog);
         customerRepository.save(customer);
 
-        log.info("Khách {} đổi {} điểm lấy {}", customer.getCustomerId(), cost, request.getRedeemType());
+        log.info("Khách {} đổi {} điểm", customer.getCustomerId(), cost);
 
         return RedeemPointsResponse.builder()
                 .customerId(customer.getCustomerId())
-                .redeemType(request.getRedeemType())
                 .pointsUsed(cost)
                 .remainingBalance(customer.getTotalPoints())
-                .message(String.format("Đổi thưởng thành công, đã trừ %d điểm", cost))
+                .message(String.format("Thanh toán bằng điểm thành công, đã trừ %d điểm", cost))
                 .build();
     }
 
@@ -285,10 +279,6 @@ public class LoyaltyService {
                 .silverThreshold(silverThreshold)
                 .goldThreshold(goldThreshold)
                 .platinumThreshold(platinumThreshold)
-                .redeemPointsFor10k(activeTierConfig.getRedeemPointsFor10k())
-                .redeemPointsFreeBasic(activeTierConfig.getRedeemPointsFreeBasic())
-                .redeemPointsFreePremium(activeTierConfig.getRedeemPointsFreePremium())
-                .redeemPointsAddon(activeTierConfig.getRedeemPointsAddon())
                 .build();
     }
 
@@ -427,14 +417,6 @@ public class LoyaltyService {
         };
     }
 
-    private int calculateRedeemCost(LoyaltyTierConfig config, RedeemType type, Tier tier) {
-        return switch (type) {
-            case DISCOUNT_10K -> config.getRedeemPointsFor10k();
-            case FREE_BASIC -> config.getRedeemPointsFreeBasic();
-            case FREE_PREMIUM -> config.getRedeemPointsFreePremium();
-            case ADDON -> config.getRedeemPointsAddon();
-        };
-    }
 
     /**
      * Trừ điểm theo FIFO — điểm sắp hết hạn nhất bị trừ trước.
@@ -509,10 +491,6 @@ public class LoyaltyService {
                 .multiplierGold(config.getMultiplierGold())
                 .multiplierPlatinum(config.getMultiplierPlatinum())
                 .pointExpiryMonths(config.getPointExpiryMonths())
-                .redeemPointsFor10k(config.getRedeemPointsFor10k())
-                .redeemPointsFreeBasic(config.getRedeemPointsFreeBasic())
-                .redeemPointsFreePremium(config.getRedeemPointsFreePremium())
-                .redeemPointsAddon(config.getRedeemPointsAddon())
                 .updatedAt(config.getUpdatedAt())
                 .updatedBy(config.getUpdatedBy())
                 .build();

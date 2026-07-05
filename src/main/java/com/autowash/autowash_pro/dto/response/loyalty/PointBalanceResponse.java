@@ -22,8 +22,4 @@ public class PointBalanceResponse {
     private int silverThreshold;
     private int goldThreshold;
     private int platinumThreshold;
-    private int redeemPointsFor10k;
-    private int redeemPointsFreeBasic;
-    private int redeemPointsFreePremium;
-    private int redeemPointsAddon;
 }

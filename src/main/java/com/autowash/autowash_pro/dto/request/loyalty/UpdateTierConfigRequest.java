@@ -33,16 +33,4 @@ public class UpdateTierConfigRequest {
 
     @Min(value = 0, message = "Thời hạn điểm phải lớn hơn hoặc bằng 0")
     private int pointExpiryMonths;
-
-    @Min(value = 0, message = "Số điểm đổi 10k phải lớn hơn hoặc bằng 0")
-    private int redeemPointsFor10k;
-
-    @Min(value = 0, message = "Số điểm đổi dịch vụ Basic phải lớn hơn hoặc bằng 0")
-    private int redeemPointsFreeBasic;
-
-    @Min(value = 0, message = "Số điểm đổi dịch vụ Premium phải lớn hơn hoặc bằng 0")
-    private int redeemPointsFreePremium;
-
-    @Min(value = 0, message = "Số điểm đổi addon phải lớn hơn hoặc bằng 0")
-    private int redeemPointsAddon;
 }

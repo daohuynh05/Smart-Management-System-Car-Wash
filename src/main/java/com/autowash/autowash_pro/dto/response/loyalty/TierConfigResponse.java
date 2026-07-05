@@ -17,10 +17,6 @@ public class TierConfigResponse {
     private double multiplierGold;
     private double multiplierPlatinum;
     private int pointExpiryMonths;
-    private int redeemPointsFor10k;
-    private int redeemPointsFreeBasic;
-    private int redeemPointsFreePremium;
-    private int redeemPointsAddon;
     private LocalDateTime updatedAt;
     private UUID updatedBy;
 }

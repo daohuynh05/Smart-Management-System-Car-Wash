@@ -1,10 +1,8 @@
 package com.autowash.autowash_pro.dto.request.loyalty;
 
 import java.util.UUID;
-
-import com.autowash.autowash_pro.enums.RedeemType;
-
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,8 +16,9 @@ public class RedeemPointsRequest {
     @NotNull(message = "customerId không được để trống")
     private UUID customerId;
 
-    @NotNull(message = "Loại redeem không được để trống")
-    private RedeemType redeemType;
+    @NotNull(message = "Số điểm cần đổi không được để trống")
+    @Min(value = 1, message = "Số điểm cần đổi phải lớn hơn 0")
+    private Integer points;
 
     @NotNull(message = "referenceId không được để trống")
     private UUID referenceId;

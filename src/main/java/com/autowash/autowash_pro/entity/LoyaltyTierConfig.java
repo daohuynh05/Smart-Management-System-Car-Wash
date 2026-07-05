@@ -24,10 +24,6 @@ public class LoyaltyTierConfig {
     private double multiplierGold;
     private double multiplierPlatinum;
     private int pointExpiryMonths;
-    private int redeemPointsFor10k;
-    private int redeemPointsFreeBasic;
-    private int redeemPointsFreePremium;
-    private int redeemPointsAddon;
 
     private boolean active;
 
