@@ -51,4 +51,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByVehicle_VehicleId(UUID vehicleId);
 
     boolean existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(UUID customerId, UUID promoId, BookingStatus status);
+
+    @EntityGraph(attributePaths = { "bookingServices", "bookingServices.washService" })
+    List<Booking> findByVehicle_VehicleIdAndStatusOrderByScheduledAtDesc(UUID vehicleId, BookingStatus status);
 }
