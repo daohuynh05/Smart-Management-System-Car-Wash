@@ -30,8 +30,7 @@ public class CustomerService {
     private final BookingRepository bookingRepository;
     private final VehicleRepository vehicleRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
     // Lấy toàn bộ danh sách khách hàng từ database đám mây Supabase
     public List<Customer> getAllCustomers() {

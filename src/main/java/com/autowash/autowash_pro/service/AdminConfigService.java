@@ -38,7 +38,7 @@ public class AdminConfigService {
         }
 
         existing.setPointRate(newConfig.getPointRate());
-        
+
         // Update tier rules
         if (existing.getTierRules() == null) {
             existing.setTierRules(new ArrayList<>());
@@ -60,14 +60,6 @@ public class AdminConfigService {
         }
 
         return systemConfigRepository.save(existing);
-    }
-
-    public List<Reward> getRewards() {
-        List<Reward> rewards = rewardRepository.findAll();
-        if (rewards.isEmpty()) {
-            return initializeDefaultRewards();
-        }
-        return rewards;
     }
 
     public Reward addReward(Reward reward) {
@@ -111,7 +103,7 @@ public class AdminConfigService {
                 .bookingWindow(14)
                 .multiplier(125)
                 .perks("Miễn phí dịch vụ hút bụi. Giảm giá 10% các gói Detail. Ưu tiên hàng chờ cao.")
-                .className("bg-tier-gold" )
+                .className("bg-tier-gold")
                 .build());
         rules.add(TierRule.builder()
                 .tier("platinum")
@@ -132,21 +124,4 @@ public class AdminConfigService {
         return systemConfigRepository.save(config);
     }
 
-    private List<Reward> initializeDefaultRewards() {
-        List<Reward> defaultRewards = new ArrayList<>();
-        defaultRewards.add(Reward.builder()
-                .name("Voucher Rửa xe 0đ")
-                .points("500")
-                .minimumTier("SILVER")
-                .tierClassName("bg-tier-silver")
-                .build());
-        defaultRewards.add(Reward.builder()
-                .name("Nước hoa xe hơi cao cấp")
-                .points("1.200")
-                .minimumTier("GOLD")
-                .tierClassName("bg-tier-gold")
-                .build());
-        
-        return rewardRepository.saveAll(defaultRewards);
-    }
 }

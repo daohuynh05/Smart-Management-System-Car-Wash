@@ -12,7 +12,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -38,12 +37,6 @@ public class AdminConfigController {
         response.put("status", "SUCCESS");
         response.put("message", "Cấu hình hệ thống đã được cập nhật thành công!");
         return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/rewards")
-    @Operation(summary = "Lấy danh sách phần thưởng")
-    public ResponseEntity<List<Reward>> getRewards() {
-        return ResponseEntity.ok(adminConfigService.getRewards());
     }
 
     @PostMapping("/rewards")
