@@ -35,6 +35,7 @@ import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
 import com.autowash.autowash_pro.repository.BookingRepository;
 import com.autowash.autowash_pro.repository.CustomerRepository;
+import com.autowash.autowash_pro.repository.PromotionRepository;
 import com.autowash.autowash_pro.repository.VehicleRepository;
 import com.autowash.autowash_pro.repository.WashServiceRepository;
 import com.autowash.autowash_pro.repository.BookingWashServiceRepository;
@@ -42,6 +43,7 @@ import com.autowash.autowash_pro.repository.CustomerPointsRepository;
 import com.autowash.autowash_pro.repository.PromotionRepository;
 import com.autowash.autowash_pro.entity.Promotion;
 
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -118,6 +120,8 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final CustomerRepository customerRepository;
     private final VehicleRepository vehicleRepository;
+    private final WashHistoryRepository washHistoryRepository;
+    private final PromotionRepository promotionRepository;
     private final NotificationService notificationService;
     private final LoyaltyService loyaltyService;
     private final PromotionRepository promotionRepository;
@@ -517,8 +521,76 @@ public class BookingService {
     public BookingResponse updateStatus(
             UUID bookingId,
             BookingStatus newStatus) {
+        return updateStatus(bookingId, newStatus, null);
+    }
+
+    public BookingResponse updateStatus(
+            UUID bookingId,
+            BookingStatus newStatus,
+            UUID promoId) {
 
         Booking booking = findBooking(bookingId);
+        validateStatusTransition(booking.getStatus(), newStatus);
+
+        if (newStatus == BookingStatus.DONE) {
+            // Kiểm tra xem đã checkout chưa để tránh trùng lặp
+            if (washHistoryRepository.existsByBooking_BookingId(bookingId)) {
+                throw new BusinessException("Lịch đặt này đã được hoàn tất trước đó.");
+            }
+
+            BigDecimal basePrice = BigDecimal.valueOf(booking.getServiceType().getBasePrice());
+            BigDecimal discountApplied = BigDecimal.ZERO;
+            Promotion promotion = null;
+
+            if (promoId != null) {
+                promotion = promotionRepository.findById(promoId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chương trình khuyến mãi"));
+
+                if (!promotion.isValid()) {
+                    throw new BusinessException("Chương trình khuyến mãi đã hết hạn hoặc hết lượt sử dụng");
+                }
+
+                if (!promotion.getTargetTierList().contains(booking.getCustomer().getTier())) {
+                    throw new BusinessException("Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
+                }
+
+                LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+                boolean alreadyUsed = washHistoryRepository.existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
+                        booking.getCustomer().getCustomerId(),
+                        promotion.getPromoType(),
+                        sevenDaysAgo
+                );
+                if (alreadyUsed) {
+                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại " + promotion.getPromoType() + " trong vòng 7 ngày qua");
+                }
+
+                discountApplied = promotion.getValue();
+                if (discountApplied.compareTo(basePrice) > 0) {
+                    discountApplied = basePrice;
+                }
+
+                // Tăng usage_count sau khi áp dụng
+                promotion.setUsageCount(promotion.getUsageCount() + 1);
+                promotionRepository.save(promotion);
+            }
+
+            BigDecimal amountPaid = basePrice.subtract(discountApplied);
+
+            // Tạo và lưu WashHistory
+            WashHistory washHistory = WashHistory.builder()
+                    .customer(booking.getCustomer())
+                    .vehicle(booking.getVehicle())
+                    .booking(booking)
+                    .washedAt(LocalDateTime.now())
+                    .serviceType(booking.getServiceType())
+                    .amountPaid(amountPaid)
+                    .discountApplied(discountApplied)
+                    .promo(promotion)
+                    .build();
+
+            washHistoryRepository.save(washHistory);
+        }
+
         BookingStatus oldStatus = booking.getStatus();
 
         if (oldStatus == BookingStatus.DONE) {

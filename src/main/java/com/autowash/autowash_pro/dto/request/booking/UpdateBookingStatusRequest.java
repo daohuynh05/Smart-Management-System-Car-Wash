@@ -12,4 +12,6 @@ public class UpdateBookingStatusRequest {
 
     @NotNull(message = "status không được để trống")
     private BookingStatus status;
+
+    private java.util.UUID promoId;
 }

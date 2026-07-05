@@ -77,4 +77,8 @@ public class WashHistory {
     @Column(name = "lpr_detected", nullable = false)
     @Builder.Default
     private boolean lprDetected = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promo_id")
+    private Promotion promo;
 }

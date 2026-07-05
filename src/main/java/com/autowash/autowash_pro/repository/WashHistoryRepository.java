@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import com.autowash.autowash_pro.entity.WashHistory;
+import com.autowash.autowash_pro.enums.PromoType;
 
 import io.lettuce.core.dynamic.annotation.Param;
 @Repository
@@ -25,5 +26,9 @@ public interface WashHistoryRepository
         @Param("customerId") UUID customerId,
         @Param("since") LocalDateTime since);
 
+    boolean existsByBooking_BookingId(UUID bookingId);
+
+    boolean existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
+        UUID customerId, PromoType promoType, LocalDateTime washedAt);
     List<WashHistory> findByWashedAtBetween(LocalDateTime start, LocalDateTime end);
 }

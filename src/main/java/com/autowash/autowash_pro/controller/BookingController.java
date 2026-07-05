@@ -97,6 +97,6 @@ public class BookingController {
             @PathVariable UUID bookingId,
             @RequestBody @Valid UpdateBookingStatusRequest request) {
         return ResponseEntity.ok(
-                bookingService.updateStatus(bookingId, request.getStatus()));
+                bookingService.updateStatus(bookingId, request.getStatus(), request.getPromoId()));
     }
 }
