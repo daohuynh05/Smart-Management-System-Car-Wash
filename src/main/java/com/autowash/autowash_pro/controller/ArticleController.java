@@ -16,11 +16,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.autowash.autowash_pro.entity.Article;
 import com.autowash.autowash_pro.service.ArticleService;
-import io.swagger.v3.oas.annotations.Operation;
 
 @RestController
 @RequestMapping("/api/admin/articles")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173") // cần sửa laij
 public class ArticleController {
 
     private final ArticleService articleService;

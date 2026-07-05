@@ -18,12 +18,6 @@ import com.autowash.autowash_pro.exception.ResourceNotFoundException;
 import com.autowash.autowash_pro.repository.CustomerRepository;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import com.autowash.autowash_pro.exception.BusinessException;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +33,7 @@ public class AuthService {
         // Kiểm tra phone đã tồn tại chưa
         if (customerRepository.existsByPhone(request.getPhone())) {
             throw new BusinessException(
-                "Số điện thoại đã được đăng ký");
+                    "Số điện thoại đã được đăng ký");
         }
 
         // Kiểm tra email nếu có
@@ -50,11 +44,11 @@ public class AuthService {
 
         // Tạo customer mới
         Customer customer = Customer.builder()
-            .fullName(request.getFullName())
-            .phone(request.getPhone())
-            .email(request.getEmail())
-            .password(passwordEncoder.encode(request.getPassword()))
-            .build();
+                .fullName(request.getFullName())
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .build();
 
         Customer savedCustomer = customerRepository.save(customer);
 
@@ -66,8 +60,7 @@ public class AuthService {
         String identifier = request.getEmailOrPhone().trim();
 
         Customer customer = findCustomerByEmailOrPhone(identifier)
-            .orElseThrow(() ->
-                new BusinessException("Email hoặc số điện thoại hoặc mật khẩu không đúng"));
+                .orElseThrow(() -> new BusinessException("Email hoặc số điện thoại hoặc mật khẩu không đúng"));
 
         if (!customer.isActive()) {
             throw new BusinessException("Tài khoản đã bị khóa");
@@ -76,7 +69,7 @@ public class AuthService {
         if (!passwordEncoder.matches(
                 request.getPassword(), customer.getPassword())) {
             throw new BusinessException(
-                "Email hoặc số điện thoại hoặc mật khẩu không đúng");
+                    "Email hoặc số điện thoại hoặc mật khẩu không đúng");
         }
 
         return buildAuthResponse(customer);
@@ -101,9 +94,8 @@ public class AuthService {
 
         String phone = jwtUtil.extractPhone(request.getRefreshToken());
         Customer customer = customerRepository
-            .findByPhone(phone)
-            .orElseThrow(() ->
-                new ResourceNotFoundException("Không tìm thấy user"));
+                .findByPhone(phone)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
 
         return buildAuthResponse(customer);
     }
@@ -112,16 +104,16 @@ public class AuthService {
     private AuthResponse buildAuthResponse(Customer customer) {
         String role = customer.isAdmin() ? "ADMIN" : "CUSTOMER";
         return AuthResponse.builder()
-            .id(customer.getCustomerId())
-            .accessToken(jwtUtil.generateAccessToken(
-                customer.getPhone(), role))
-            .refreshToken(jwtUtil.generateRefreshToken(
-                customer.getPhone()))
-            .tokenType("Bearer")
-            .role(role)
-            .tier(customer.getTier())
-            .fullName(customer.getFullName())
-            .phone(customer.getPhone())
-            .build();
+                .id(customer.getCustomerId())
+                .accessToken(jwtUtil.generateAccessToken(
+                        customer.getPhone(), role))
+                .refreshToken(jwtUtil.generateRefreshToken(
+                        customer.getPhone()))
+                .tokenType("Bearer")
+                .role(role)
+                .tier(customer.getTier())
+                .fullName(customer.getFullName())
+                .phone(customer.getPhone())
+                .build();
     }
 }
