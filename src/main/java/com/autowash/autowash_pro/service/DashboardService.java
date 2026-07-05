@@ -47,6 +47,9 @@ public class DashboardService {
                         return statusStr.contains("COMPLETED") || statusStr.contains("DONE");
                     })
                     .map(b -> {
+                        if (b.getTotalAmount() != null) {
+                            return b.getTotalAmount();
+                        }
                         String svc = b.getServiceType() != null ? b.getServiceType().toString().toUpperCase() : "";
                         if (svc.contains("FULL") || svc.contains("DETAIL")) {
                             return BigDecimal.valueOf(80000L);
@@ -126,6 +129,9 @@ public class DashboardService {
                                     return statusStr.contains("COMPLETED") || statusStr.contains("DONE");
                                 })
                                 .map(b -> {
+                                    if (b.getTotalAmount() != null) {
+                                        return b.getTotalAmount();
+                                    }
                                     String svc = b.getServiceType() != null ? b.getServiceType().toString().toUpperCase() : "";
                                     if (svc.contains("FULL") || svc.contains("DETAIL")) return BigDecimal.valueOf(80000L);
                                     else if (svc.contains("PREMIUM")) return BigDecimal.valueOf(50000L);
