@@ -433,13 +433,7 @@ public class LoyaltyService {
         return switch (type) {
             case DISCOUNT_10K  -> config.getRedeemPointsFor10k();
             case FREE_BASIC    -> config.getRedeemPointsFreeBasic();
-            case FREE_PREMIUM  -> {
-                // TODO: [Dev-4] Confirm với team — FREE_PREMIUM chỉ cho Gold/Platinum
-                if (tier == Tier.MEMBER || tier == Tier.SILVER) {
-                    throw new BusinessException("Rửa xe Premium miễn phí chỉ dành cho thành viên Gold và Platinum");
-                }
-                yield config.getRedeemPointsFreePremium();
-            }
+            case FREE_PREMIUM  -> config.getRedeemPointsFreePremium();
             case ADDON         -> config.getRedeemPointsAddon();
         };
     }
@@ -448,7 +442,7 @@ public class LoyaltyService {
      * Trừ điểm theo FIFO — điểm sắp hết hạn nhất bị trừ trước.
      * Đảm bảo khách không mất điểm còn hiệu lực lâu dài.
      */
-    private void deductPointsFifo(Customer customer, int totalCost) {
+    public void deductPointsFifo(Customer customer, int totalCost) {
         List<CustomerPoints> fifoList = customerPointsRepository
             .findActiveEarnPointsFifo(customer.getCustomerId(), LocalDateTime.now());
 

@@ -98,6 +98,14 @@ public class Booking {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "used_points", nullable = false)
+    @Builder.Default
+    private int usedPoints = 0;
+
+    @Column(name = "points_discount_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal pointsDiscountAmount = java.math.BigDecimal.ZERO;
+    // phía trên xử lý usedpoint và point discount là số tiền trừ khi dùng điểm á
     // Relationship ngược lại với WashHistory
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnoreProperties("booking")

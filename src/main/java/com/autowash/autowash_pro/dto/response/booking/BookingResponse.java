@@ -34,6 +34,8 @@ public class BookingResponse {
     private UUID promoId;
     private String promoName;
     private java.math.BigDecimal discountAmount;
+    private int usedPoints;
+    private java.math.BigDecimal pointsDiscountAmount;
 
     public static BookingResponse from(com.autowash.autowash_pro.entity.Booking booking) {
         com.autowash.autowash_pro.entity.Customer customer = booking.getCustomer();
@@ -79,6 +81,8 @@ public class BookingResponse {
                 .promoId(booking.getPromotion() != null ? booking.getPromotion().getPromoId() : null)
                 .promoName(booking.getPromotion() != null ? booking.getPromotion().getName() : null)
                 .discountAmount(booking.getDiscountAmount())
+                .usedPoints(booking.getUsedPoints())
+                .pointsDiscountAmount(booking.getPointsDiscountAmount())
                 .build();
     }
 }
