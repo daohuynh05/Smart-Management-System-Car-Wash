@@ -1,5 +1,6 @@
 package com.autowash.autowash_pro.service;
 
+import com.autowash.autowash_pro.dto.request.auth.ChangePasswordRequest;
 import com.autowash.autowash_pro.dto.request.customer.CustomerRequestDTO;
 import com.autowash.autowash_pro.dto.response.customer.CustomerProfileResponse;
 import com.autowash.autowash_pro.entity.Customer;
@@ -8,6 +9,7 @@ import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
 import com.autowash.autowash_pro.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,6 +30,11 @@ public class CustomerService {
     private final BookingRepository bookingRepository;
     private final VehicleRepository vehicleRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    // Lấy toàn bộ danh sách khách hàng từ database đám mây Supabase
+    public List<Customer> getAllCustomers() {}
     // 🌟 THAY THẾ & NÂNG CẤP HÀM NÀY: Lấy danh sách khách hàng kết hợp bộ lọc Tìm kiếm và Phân hạng Tier
     public List<Customer> getAdminCustomers(String keyword, String tierStr) {
         // 1. Nếu Admin điền từ khóa vào ô Search -> Ưu tiên tìm kiếm theo Tên hoặc Số điện thoại
@@ -176,5 +183,21 @@ public class CustomerService {
                 .lastVisitAt(customer.getLastVisitAt())
                 .isActive(customer.isActive())
                 .build();
+    }
+
+    @Transactional
+    public void changePassword(UUID id, ChangePasswordRequest request) {
+        Customer customer = getCustomerById(id);
+
+        if (!passwordEncoder.matches(request.getOldPassword(), customer.getPassword())) {
+            throw new BusinessException("Mật khẩu cũ không đúng");
+        }
+
+        if (request.getNewPassword() == null || request.getNewPassword().length() < 6) {
+            throw new BusinessException("Mật khẩu mới ít nhất 6 ký tự");
+        }
+
+        customer.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        customerRepository.save(customer);
     }
 }
