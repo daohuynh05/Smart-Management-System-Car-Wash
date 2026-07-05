@@ -18,6 +18,8 @@ public class VehicleResponse {
     private String brand;
     private String color;
     private boolean primary;
+    private String lastWashService;
+    private String lastWashDate;
     private LocalDateTime createdAt;
 
     public static VehicleResponse from(Vehicle vehicle) {

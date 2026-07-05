@@ -1,0 +1,2 @@
+ALTER TABLE bookings ADD COLUMN used_points INT NOT NULL DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN points_discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00;

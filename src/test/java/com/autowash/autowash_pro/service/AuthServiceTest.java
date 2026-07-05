@@ -63,12 +63,14 @@ class AuthServiceTest {
         when(customerRepository.existsByPhone(request.getPhone())).thenReturn(false);
         when(customerRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
+        when(customerRepository.save(any(Customer.class))).thenReturn(customer);
         when(jwtUtil.generateAccessToken(any(), any())).thenReturn("mockedAccessToken");
         when(jwtUtil.generateRefreshToken(any())).thenReturn("mockedRefreshToken");
 
         AuthResponse response = authService.register(request);
 
         assertNotNull(response);
+        assertEquals(customer.getCustomerId(), response.getId());
         assertEquals("mockedAccessToken", response.getAccessToken());
         assertEquals("mockedRefreshToken", response.getRefreshToken());
         assertEquals("Nguyen Van A", response.getFullName());
@@ -98,6 +100,7 @@ class AuthServiceTest {
         AuthResponse response = authService.login(request);
 
         assertNotNull(response);
+        assertEquals(customer.getCustomerId(), response.getId());
         assertEquals("mockedAccessToken", response.getAccessToken());
     }
 
@@ -113,6 +116,7 @@ class AuthServiceTest {
         AuthResponse response = authService.login(request);
 
         assertNotNull(response);
+        assertEquals(customer.getCustomerId(), response.getId());
         assertEquals("mockedAccessToken", response.getAccessToken());
     }
 
@@ -151,6 +155,7 @@ class AuthServiceTest {
         AuthResponse response = authService.refreshToken(request);
 
         assertNotNull(response);
+        assertEquals(customer.getCustomerId(), response.getId());
         assertEquals("newAccessToken", response.getAccessToken());
         assertEquals("newRefreshToken", response.getRefreshToken());
     }

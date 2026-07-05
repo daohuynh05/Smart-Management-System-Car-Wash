@@ -1,6 +1,5 @@
 package com.autowash.autowash_pro.entity;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,7 +27,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "promotions")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -56,6 +56,9 @@ public class Promotion {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal value;
 
+    @Column(name = "max_discount", precision = 10, scale = 2)
+    private BigDecimal maxDiscount;
+
     @Column(name = "starts_at", nullable = false)
     private LocalDateTime startsAt;
 
@@ -81,17 +84,17 @@ public class Promotion {
     @Transient
     public List<Tier> getTargetTierList() {
         return List.of(targetTiers.split(","))
-            .stream()
-            .map(Tier::valueOf)
-            .toList();
+                .stream()
+                .map(Tier::valueOf)
+                .toList();
     }
 
     @Transient
     public void setTargetTierList(List<Tier> tiers) {
         this.targetTiers = tiers.stream()
-            .map(Tier::name)
-            .reduce((a, b) -> a + "," + b)
-            .orElse("");
+                .map(Tier::name)
+                .reduce((a, b) -> a + "," + b)
+                .orElse("");
     }
 
     // Helper: kiểm tra còn hiệu lực không

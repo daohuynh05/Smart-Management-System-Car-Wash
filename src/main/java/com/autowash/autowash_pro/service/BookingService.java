@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -16,14 +17,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.autowash.autowash_pro.dto.request.booking.CreateBookingRequest;
+import com.autowash.autowash_pro.dto.request.loyalty.RedeemPointsRequest;
 import com.autowash.autowash_pro.dto.response.booking.AvailabilitySlotResponse;
 import com.autowash.autowash_pro.dto.response.booking.BookingResponse;
 import com.autowash.autowash_pro.entity.Booking;
 import com.autowash.autowash_pro.entity.Customer;
+import com.autowash.autowash_pro.entity.CustomerPoints;
 import com.autowash.autowash_pro.entity.Vehicle;
 import com.autowash.autowash_pro.entity.WashService;
 import com.autowash.autowash_pro.entity.BookingWashService;
 import com.autowash.autowash_pro.enums.BookingStatus;
+import com.autowash.autowash_pro.enums.PointType;
+import com.autowash.autowash_pro.enums.RedeemType;
 import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.enums.ServiceType;
 import com.autowash.autowash_pro.exception.BusinessException;
@@ -33,6 +38,9 @@ import com.autowash.autowash_pro.repository.CustomerRepository;
 import com.autowash.autowash_pro.repository.VehicleRepository;
 import com.autowash.autowash_pro.repository.WashServiceRepository;
 import com.autowash.autowash_pro.repository.BookingWashServiceRepository;
+import com.autowash.autowash_pro.repository.CustomerPointsRepository;
+import com.autowash.autowash_pro.repository.PromotionRepository;
+import com.autowash.autowash_pro.entity.Promotion;
 
 import lombok.RequiredArgsConstructor;
 
@@ -112,6 +120,8 @@ public class BookingService {
     private final VehicleRepository vehicleRepository;
     private final NotificationService notificationService;
     private final LoyaltyService loyaltyService;
+    private final PromotionRepository promotionRepository;
+    private final CustomerPointsRepository customerPointsRepository;
 
     public BookingResponse createBooking(
             CreateBookingRequest request,
@@ -222,6 +232,143 @@ public class BookingService {
             total = total.add(s.getBasePrice());
         }
 
+        BigDecimal discount = BigDecimal.ZERO;
+        Promotion promotion = null;
+        if (request.getPromoId() != null) {
+            promotion = promotionRepository.findById(request.getPromoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chương trình khuyến mãi"));
+
+            if (!promotion.isActive()) {
+                throw new BusinessException("Chương trình khuyến mãi không hoạt động");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isBefore(promotion.getStartsAt()) || now.isAfter(promotion.getEndsAt())) {
+                throw new BusinessException("Chương trình khuyến mãi đã hết hạn hoặc chưa bắt đầu");
+            }
+            if (promotion.getUsageLimit() != null && promotion.getUsageCount() >= promotion.getUsageLimit()) {
+                throw new BusinessException("Chương trình khuyến mãi đã hết lượt sử dụng");
+            }
+            int userRank = switch (customer.getTier()) {
+                case MEMBER -> 1;
+                case SILVER -> 2;
+                case GOLD -> 3;
+                case PLATINUM -> 4;
+            };
+            int minRequiredRank = 4;
+            String targetTiers = promotion.getTargetTiers();
+            if (targetTiers != null && !targetTiers.trim().isEmpty()) {
+                for (String t : targetTiers.split(",")) {
+                    try {
+                        com.autowash.autowash_pro.enums.Tier targetTier = com.autowash.autowash_pro.enums.Tier.valueOf(t.trim().toUpperCase());
+                        int rank = switch (targetTier) {
+                            case MEMBER -> 1;
+                            case SILVER -> 2;
+                            case GOLD -> 3;
+                            case PLATINUM -> 4;
+                        };
+                        if (rank < minRequiredRank) {
+                            minRequiredRank = rank;
+                        }
+                    } catch (Exception e) {
+                        // ignore malformed tier
+                    }
+                }
+            } else {
+                minRequiredRank = 1;
+            }
+            if (userRank < minRequiredRank) {
+                throw new BusinessException("Hạng thành viên của bạn không đủ điều kiện sử dụng mã này");
+            }
+
+            // Kiểm tra xem khách hàng này đã dùng mã khuyến mãi này trong một booking hợp
+            // lệ nào chưa
+            if (bookingRepository.existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(
+                    customer.getCustomerId(), promotion.getPromoId(), BookingStatus.CANCELLED)) {
+                throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi này rồi");
+            }
+
+            BigDecimal promoVal = promotion.getValue();
+            if (promoVal.compareTo(BigDecimal.valueOf(100)) <= 0) {
+                discount = total.multiply(promoVal).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                if (promotion.getMaxDiscount() != null && discount.compareTo(promotion.getMaxDiscount()) > 0) {
+                    discount = promotion.getMaxDiscount();
+                }
+            } else {
+                discount = promoVal;
+            }
+
+            if (discount.compareTo(total) > 0) {
+                discount = total;
+            }
+
+            promotion.setUsageCount(promotion.getUsageCount() + 1);
+            promotionRepository.save(promotion);
+        }
+
+        BigDecimal finalTotal = total.subtract(discount);
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+
+        // --- Xử lý đổi điểm tích lũy thành tiền mặt (1 điểm = 100đ) ---
+        int pointsToUse = 0;
+        BigDecimal pointsDiscount = BigDecimal.ZERO;
+        if (request.getUsedPoints() > 0) {
+            if (customer.getTotalPoints() < request.getUsedPoints()) {
+                throw new BusinessException(String.format(
+                        "Không đủ điểm tích lũy. Bạn chọn dùng %d điểm nhưng chỉ có %d điểm",
+                        request.getUsedPoints(), customer.getTotalPoints()));
+            }
+
+            // Tính toán giá trị giảm trừ tối đa không vượt quá finalTotal
+            BigDecimal potentialPointsDiscount = BigDecimal.valueOf(request.getUsedPoints() * 100L);
+            if (potentialPointsDiscount.compareTo(finalTotal) > 0) {
+                // Khấu trừ toàn bộ hóa đơn về 0đ
+                pointsDiscount = finalTotal;
+                // Quy ngược lại số điểm cần trừ chẵn (làm tròn lên để đủ số tiền cần trừ)
+                pointsToUse = (int) Math.ceil(finalTotal.doubleValue() / 100.0);
+                if (pointsToUse > customer.getTotalPoints()) {
+                    pointsToUse = customer.getTotalPoints();
+                }
+                pointsDiscount = BigDecimal.valueOf(pointsToUse * 100L);
+            } else {
+                pointsToUse = request.getUsedPoints();
+                pointsDiscount = potentialPointsDiscount;
+            }
+
+            if (pointsToUse > 0) {
+                // Thực hiện trừ điểm của khách hàng theo FIFO
+                // Tạo một request giả lập đổi điểm
+                RedeemPointsRequest redeemRequest = new RedeemPointsRequest();
+                redeemRequest.setCustomerId(customer.getCustomerId());
+                redeemRequest.setRedeemType(RedeemType.DISCOUNT_10K); // Tạm lấy đại diện
+                redeemRequest.setReferenceId(UUID.randomUUID()); // Mã đối chiếu
+
+                // Gọi helper trừ FIFO
+                loyaltyService.deductPointsFifo(customer, pointsToUse);
+
+                // Ghi nhận dòng log REDEEM điểm vào lịch sử
+                com.autowash.autowash_pro.entity.CustomerPoints redeemLog = com.autowash.autowash_pro.entity.CustomerPoints
+                        .builder()
+                        .customer(customer)
+                        .type(PointType.REDEEM)
+                        .points(-pointsToUse)
+                        .balanceAfter(customer.getTotalPoints())
+                        .referenceId(redeemRequest.getReferenceId())
+                        .description("Khấu trừ đặt lịch #" + scheduledAt.toLocalDate())
+                        .expiresAt(LocalDateTime.now().plusYears(99))
+                        .build();
+
+                customerPointsRepository.save(redeemLog);
+                customerRepository.save(customer);
+            }
+        }
+
+        finalTotal = finalTotal.subtract(pointsDiscount);
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+
         Booking booking = Booking.builder()
                 .customer(customer)
                 .vehicle(vehicle)
@@ -229,12 +376,16 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .priorityScore(customer.getTier().getPriorityScore())
                 .notes(request.getNotes())
-                .totalAmount(total)
+                .totalAmount(finalTotal)
+                .promotion(promotion)
+                .discountAmount(discount)
+                .usedPoints(pointsToUse)
+                .pointsDiscountAmount(pointsDiscount)
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
 
-        java.util.List<BookingWashService> bookingServicesList = new java.util.ArrayList<>();
+        List<BookingWashService> bookingServicesList = new ArrayList<>();
         for (WashService ws : selectedServices) {
             BookingWashService bws = BookingWashService.builder()
                     .booking(savedBooking)
@@ -336,12 +487,33 @@ public class BookingService {
             throw new BusinessException("Lịch đang rửa không thể tự hủy");
         }
 
+        // Hoàn điểm nếu booking có sử dụng điểm khấu trừ
+        if (booking.getUsedPoints() > 0 && booking.getCustomer() != null) {
+            Customer customer = booking.getCustomer();
+            customer.setTotalPoints(customer.getTotalPoints() + booking.getUsedPoints());
+            customer.setLifetimePoints(customer.getLifetimePoints() + booking.getUsedPoints()); // Khôi phục lại
+                                                                                                // lifetime
+            customerRepository.save(customer);
+
+            CustomerPoints refundLog = com.autowash.autowash_pro.entity.CustomerPoints.builder()
+                    .customer(customer)
+                    .type(PointType.EARN)
+                    .points(booking.getUsedPoints())
+                    .balanceAfter(customer.getTotalPoints())
+                    .referenceId(booking.getBookingId())
+                    .description("Hoàn điểm hủy lịch #" + booking.getScheduledAt().toLocalDate())
+                    .expiresAt(LocalDateTime.now().plusMonths(12)) // Điểm hoàn hạn dùng 12 tháng mặc định
+                    .build();
+            customerPointsRepository.save(refundLog);
+        }
+
         booking.setStatus(BookingStatus.CANCELLED);
         Booking savedBooking = bookingRepository.save(booking);
         notificationService.sendBookingStatusChanged(savedBooking);
         return mapToResponse(savedBooking);
     }
 
+    @Transactional
     public BookingResponse updateStatus(
             UUID bookingId,
             BookingStatus newStatus) {
@@ -361,11 +533,11 @@ public class BookingService {
         if (oldStatus != BookingStatus.DONE && newStatus == BookingStatus.DONE) {
             if (savedBooking.getCustomer() != null) {
 
-                BigDecimal amountPaid = savedBooking.getTotalAmount() != null 
-                        ? savedBooking.getTotalAmount() 
-                        : (savedBooking.getServiceType() != null 
-                            ? BigDecimal.valueOf(savedBooking.getServiceType().getBasePrice()) 
-                            : new BigDecimal("50000"));
+                BigDecimal amountPaid = savedBooking.getTotalAmount() != null
+                        ? savedBooking.getTotalAmount()
+                        : (savedBooking.getServiceType() != null
+                                ? BigDecimal.valueOf(savedBooking.getServiceType().getBasePrice())
+                                : new BigDecimal("50000"));
 
                 int totalPoints = 0;
                 if (savedBooking.getBookingServices() != null) {

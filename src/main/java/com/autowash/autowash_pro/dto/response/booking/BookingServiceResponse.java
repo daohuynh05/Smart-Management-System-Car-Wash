@@ -16,8 +16,7 @@ public class BookingServiceResponse {
     private BigDecimal subtotal;
 
     public static BookingServiceResponse from(com.autowash.autowash_pro.entity.BookingWashService item) {
-        if (item == null)
-            return null;
+        if (item == null) return null;
         return BookingServiceResponse.builder()
                 .serviceId(item.getWashService().getServiceId())
                 .serviceName(item.getWashService().getName())

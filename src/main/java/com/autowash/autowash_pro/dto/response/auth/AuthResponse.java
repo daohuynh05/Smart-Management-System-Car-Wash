@@ -2,6 +2,7 @@ package com.autowash.autowash_pro.dto.response.auth;
 
 import com.autowash.autowash_pro.enums.Tier;
 import lombok.*;
+import java.util.UUID;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -9,6 +10,7 @@ import lombok.*;
 @Builder
 public class AuthResponse {
 
+    private UUID id;
     private String accessToken;
     private String refreshToken;
     private String tokenType = "Bearer";
@@ -17,3 +19,4 @@ public class AuthResponse {
     private String fullName;
     private String phone;
 }
+

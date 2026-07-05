@@ -24,4 +24,6 @@ public class EarnPointsRequest {
 
     @NotNull(message = "washId không được để trống")
     private UUID washId;
+
+    private Integer customPoints;
 }
