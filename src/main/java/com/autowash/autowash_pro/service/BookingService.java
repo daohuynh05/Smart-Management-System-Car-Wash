@@ -248,9 +248,35 @@ public class BookingService {
             if (promotion.getUsageLimit() != null && promotion.getUsageCount() >= promotion.getUsageLimit()) {
                 throw new BusinessException("Chương trình khuyến mãi đã hết lượt sử dụng");
             }
-            String userTierName = customer.getTier().name();
+            int userRank = switch (customer.getTier()) {
+                case MEMBER -> 1;
+                case SILVER -> 2;
+                case GOLD -> 3;
+                case PLATINUM -> 4;
+            };
+            int minRequiredRank = 4;
             String targetTiers = promotion.getTargetTiers();
-            if (targetTiers != null && !targetTiers.contains(userTierName)) {
+            if (targetTiers != null && !targetTiers.trim().isEmpty()) {
+                for (String t : targetTiers.split(",")) {
+                    try {
+                        com.autowash.autowash_pro.enums.Tier targetTier = com.autowash.autowash_pro.enums.Tier.valueOf(t.trim().toUpperCase());
+                        int rank = switch (targetTier) {
+                            case MEMBER -> 1;
+                            case SILVER -> 2;
+                            case GOLD -> 3;
+                            case PLATINUM -> 4;
+                        };
+                        if (rank < minRequiredRank) {
+                            minRequiredRank = rank;
+                        }
+                    } catch (Exception e) {
+                        // ignore malformed tier
+                    }
+                }
+            } else {
+                minRequiredRank = 1;
+            }
+            if (userRank < minRequiredRank) {
                 throw new BusinessException("Hạng thành viên của bạn không đủ điều kiện sử dụng mã này");
             }
 
@@ -487,6 +513,7 @@ public class BookingService {
         return mapToResponse(savedBooking);
     }
 
+    @Transactional
     public BookingResponse updateStatus(
             UUID bookingId,
             BookingStatus newStatus) {
