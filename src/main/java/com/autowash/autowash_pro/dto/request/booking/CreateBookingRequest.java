@@ -24,8 +24,7 @@ public class CreateBookingRequest {
     @JsonDeserialize(using = LenientLocalDateTimeDeserializer.class)
     private LocalDateTime scheduledAt;
 
-    @NotNull(message = "serviceType không được để trống")
-    private ServiceType serviceType;
+    private java.util.List<UUID> serviceIds;
 
     @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
     private String notes;

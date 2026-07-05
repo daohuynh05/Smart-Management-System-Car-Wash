@@ -20,6 +20,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -30,12 +31,14 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "bookings")
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-// 🌟 ĐÃ THÊM: Ngăn chặn lỗi nổ Proxy kĩ thuật khi Jackson bốc dữ liệu Booking tuần tự trả về UI công khai
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+// 🌟 ĐÃ THÊM: Ngăn chặn lỗi nổ Proxy kĩ thuật khi Jackson bốc dữ liệu Booking
+// tuần tự trả về UI công khai
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Booking {
 
     @Id
@@ -45,7 +48,7 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
-    @JsonIgnoreProperties({"bookings", "vehicles", "points"}) // Tránh lặp vô hạn vòng lặp quan hệ chéo
+    @JsonIgnoreProperties({ "bookings", "vehicles", "points" }) // Tránh lặp vô hạn vòng lặp quan hệ chéo
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -56,9 +59,19 @@ public class Booking {
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
 
+    // Logic cũ dùng enum nhx logic mới đã có thêm dịch vụ nên hông dùng cái này nữa
+    // vẫn để vì database đã thêm xóa sẽ dẫn đến lỗi nên vẫn để chỉ là không dùng
     @Enumerated(EnumType.STRING)
-    @Column(name = "service_type", nullable = false, length = 20)
+    @Column(name = "service_type", nullable = true, length = 20)
     private ServiceType serviceType;
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnoreProperties("booking")
+    private java.util.List<BookingWashService> bookingServices = new java.util.ArrayList<>();
+
+    @Column(name = "total_amount", precision = 12, scale = 2)
+    private java.math.BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -76,9 +89,7 @@ public class Booking {
     private LocalDateTime createdAt;
 
     // Relationship ngược lại với WashHistory
-    @OneToOne(mappedBy = "booking",
-              cascade = CascadeType.ALL,
-              fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnoreProperties("booking")
     private WashHistory washHistory;
 }
