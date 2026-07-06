@@ -27,10 +27,6 @@ public class LoyaltyController {
 
     private final LoyaltyService loyaltyService;
 
-    // =========================================================================
-    // POST /api/loyalty/earn — Tích điểm (Admin trigger sau khi booking DONE)
-    // =========================================================================
-
     @PostMapping("/api/loyalty/earn")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Tích điểm sau khi rửa xe xong")
@@ -39,10 +35,6 @@ public class LoyaltyController {
         return ResponseEntity.ok(loyaltyService.earnPoints(request));
     }
 
-    // =========================================================================
-    // POST /api/loyalty/redeem — Đổi điểm lấy thưởng
-    // =========================================================================
-
     @PostMapping("/api/loyalty/redeem")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @Operation(summary = "Trừ/Đổi điểm tích lũy của khách hàng")
@@ -50,13 +42,8 @@ public class LoyaltyController {
             @RequestBody @Valid RedeemPointsRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(
-            loyaltyService.redeemPoints(request, userDetails.getUsername())
-        );
+                loyaltyService.redeemPoints(request, userDetails.getUsername()));
     }
-
-    // =========================================================================
-    // GET /api/loyalty/balance/{customerId} — Xem số dư điểm (Client)
-    // =========================================================================
 
     @GetMapping("/api/loyalty/balance/{customerId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
@@ -65,13 +52,8 @@ public class LoyaltyController {
             @PathVariable UUID customerId,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(
-            loyaltyService.getBalance(customerId, userDetails.getUsername())
-        );
+                loyaltyService.getBalance(customerId, userDetails.getUsername()));
     }
-
-    // =========================================================================
-    // POST /api/loyalty/tier-review — Trigger rà soát tier (Admin)
-    // =========================================================================
 
     @PostMapping("/api/loyalty/tier-review")
     @PreAuthorize("hasRole('ADMIN')")
@@ -81,10 +63,6 @@ public class LoyaltyController {
         return ResponseEntity.ok(Map.of("message", "Rà soát tier hoàn thành"));
     }
 
-    // =========================================================================
-    // GET /api/customers/{id}/points — Lịch sử điểm (Client)
-    // =========================================================================
-
     @GetMapping("/api/customers/{customerId}/points")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @Operation(summary = "Xem lịch sử giao dịch điểm (earn / redeem / expire)")
@@ -93,7 +71,6 @@ public class LoyaltyController {
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(
-            loyaltyService.getPointHistory(customerId, pageable, userDetails.getUsername())
-        );
+                loyaltyService.getPointHistory(customerId, pageable, userDetails.getUsername()));
     }
 }

@@ -2,6 +2,9 @@ package com.autowash.autowash_pro.dto.response.booking;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+
+import com.autowash.autowash_pro.entity.WashService;
+
 import lombok.Builder;
 import lombok.Getter;
 
@@ -18,8 +21,9 @@ public class WashServiceResponse {
     private boolean isCombo;
     private String bundledServiceIds;
 
-    public static WashServiceResponse from(com.autowash.autowash_pro.entity.WashService service) {
-        if (service == null) return null;
+    public static WashServiceResponse from(WashService service) {
+        if (service == null)
+            return null;
         return WashServiceResponse.builder()
                 .serviceId(service.getServiceId())
                 .name(service.getName())

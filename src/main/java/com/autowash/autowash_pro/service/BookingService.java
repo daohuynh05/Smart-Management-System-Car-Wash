@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.autowash.autowash_pro.dto.request.booking.CreateBookingRequest;
+import com.autowash.autowash_pro.dto.request.loyalty.EarnPointsRequest;
 import com.autowash.autowash_pro.dto.response.booking.AvailabilitySlotResponse;
 import com.autowash.autowash_pro.dto.response.booking.BookingResponse;
 import com.autowash.autowash_pro.entity.Booking;
@@ -41,6 +42,8 @@ import com.autowash.autowash_pro.repository.WashServiceRepository;
 import com.autowash.autowash_pro.repository.BookingWashServiceRepository;
 import com.autowash.autowash_pro.repository.CustomerPointsRepository;
 import com.autowash.autowash_pro.entity.Promotion;
+import com.autowash.autowash_pro.entity.SystemConfig;
+import com.autowash.autowash_pro.entity.TierRule;
 
 import lombok.RequiredArgsConstructor;
 
@@ -123,6 +126,7 @@ public class BookingService {
     private final NotificationService notificationService;
     private final LoyaltyService loyaltyService;
     private final CustomerPointsRepository customerPointsRepository;
+    private final AdminConfigService adminConfigService;
 
     public BookingResponse createBooking(
             CreateBookingRequest request,
@@ -454,11 +458,13 @@ public class BookingService {
         LocalDateTime firstSlot = date.atTime(OPEN_TIME);
         LocalDateTime closeAt = date.atTime(CLOSE_TIME);
 
+        int bookingWindowDays = getBookingWindowDays(customer);
+
         return Stream.iterate(
                 firstSlot,
                 slot -> slot.isBefore(closeAt),
                 slot -> slot.plusMinutes(SLOT_MINUTES))
-                .map(slot -> buildAvailabilitySlot(slot, customer))
+                .map(slot -> buildAvailabilitySlot(slot, customer, bookingWindowDays))
                 .toList();
     }
 
@@ -530,11 +536,11 @@ public class BookingService {
                 throw new BusinessException("Lịch đặt này đã được hoàn tất trước đó.");
             }
 
-            BigDecimal basePrice = booking.getTotalAmount() != null 
-                    ? booking.getTotalAmount() 
-                    : (booking.getServiceType() != null 
-                        ? BigDecimal.valueOf(booking.getServiceType().getBasePrice()) 
-                        : BigDecimal.valueOf(50000));
+            BigDecimal basePrice = booking.getTotalAmount() != null
+                    ? booking.getTotalAmount()
+                    : (booking.getServiceType() != null
+                            ? BigDecimal.valueOf(booking.getServiceType().getBasePrice())
+                            : BigDecimal.valueOf(50000));
             BigDecimal discountApplied = BigDecimal.ZERO;
             Promotion promotion = null;
 
@@ -547,17 +553,19 @@ public class BookingService {
                 }
 
                 if (!promotion.getTargetTierList().contains(booking.getCustomer().getTier())) {
-                    throw new BusinessException("Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
+                    throw new BusinessException(
+                            "Hạng thành viên của bạn không được áp dụng chương trình khuyến mãi này");
                 }
 
                 LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-                boolean alreadyUsed = washHistoryRepository.existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
-                        booking.getCustomer().getCustomerId(),
-                        promotion.getPromoType(),
-                        sevenDaysAgo
-                );
+                boolean alreadyUsed = washHistoryRepository
+                        .existsByCustomer_CustomerIdAndPromo_PromoTypeAndWashedAtAfter(
+                                booking.getCustomer().getCustomerId(),
+                                promotion.getPromoType(),
+                                sevenDaysAgo);
                 if (alreadyUsed) {
-                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại " + promotion.getPromoType() + " trong vòng 7 ngày qua");
+                    throw new BusinessException("Bạn đã sử dụng chương trình khuyến mãi loại "
+                            + promotion.getPromoType() + " trong vòng 7 ngày qua");
                 }
 
                 discountApplied = promotion.getValue();
@@ -573,7 +581,8 @@ public class BookingService {
                 discountApplied = booking.getDiscountAmount() != null ? booking.getDiscountAmount() : BigDecimal.ZERO;
             }
 
-            BigDecimal pointsDiscount = booking.getPointsDiscountAmount() != null ? booking.getPointsDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal pointsDiscount = booking.getPointsDiscountAmount() != null ? booking.getPointsDiscountAmount()
+                    : BigDecimal.ZERO;
             BigDecimal amountPaid = basePrice.subtract(discountApplied).subtract(pointsDiscount);
             if (amountPaid.compareTo(BigDecimal.ZERO) < 0) {
                 amountPaid = BigDecimal.ZERO;
@@ -623,29 +632,15 @@ public class BookingService {
                     }
                 }
 
-                com.autowash.autowash_pro.dto.request.loyalty.EarnPointsRequest earnRequest = new com.autowash.autowash_pro.dto.request.loyalty.EarnPointsRequest();
+                EarnPointsRequest earnRequest = new EarnPointsRequest();
                 earnRequest.setCustomerId(savedBooking.getCustomer().getCustomerId());
                 earnRequest.setWashId(savedBooking.getBookingId());
                 earnRequest.setAmountPaid(amountPaid);
                 earnRequest.setCustomPoints(totalPoints > 0 ? totalPoints : null);
 
-                // 1. Thực hiện tích điểm loyalty trước
+                // 1. Thực hiện tích điểm loyalty trước (đã tự động tính toán thăng hạng theo
+                // lượt rửa xe bên trong)
                 loyaltyService.earnPoints(earnRequest);
-
-                // 2. Tự động thăng hạng thời gian thực sau khi nạp điểm thành công
-                Customer currentCustomer = savedBooking.getCustomer();
-                Customer updatedCustomer = customerRepository.findById(currentCustomer.getCustomerId())
-                        .orElse(currentCustomer);
-
-                int currentPoints = updatedCustomer.getLifetimePoints();
-                Tier newTier = Tier.getNextTierFromPoints(currentPoints);
-
-                if (updatedCustomer.getTier() != newTier) {
-                    updatedCustomer.setTier(newTier);
-                    customerRepository.save(updatedCustomer);
-                    System.out.println("[Promotion] Khách hàng " + updatedCustomer.getFullName()
-                            + " đã tự động thăng hạng lên: " + newTier);
-                }
 
                 System.out.println("[Automation] Đơn đặt lịch " + bookingId
                         + " hoàn tất. Đã tự động tích điểm loyalty về đúng ID khách.");
@@ -655,15 +650,35 @@ public class BookingService {
         return mapToResponse(savedBooking);
     }
 
+    private int getBookingWindowDays(Customer customer) {
+        int bookingWindowDays = customer.getTier().getBookingWindowDays();
+        try {
+            SystemConfig config = adminConfigService.getSystemConfig();
+            if (config != null && config.getTierRules() != null) {
+                TierRule rule = config.getTierRules().stream()
+                        .filter(r -> r.getTier().equalsIgnoreCase(customer.getTier().name()))
+                        .findFirst()
+                        .orElse(null);
+                if (rule != null) {
+                    bookingWindowDays = rule.getBookingWindow();
+                }
+            }
+        } catch (Exception e) {
+            // Dự phòng
+        }
+        return bookingWindowDays;
+    }
+
     private AvailabilitySlotResponse buildAvailabilitySlot(
             LocalDateTime slot,
-            Customer customer) {
+            Customer customer,
+            int bookingWindowDays) {
 
         int booked = bookingRepository
                 .countByScheduledAtAndStatusIn(slot, ACTIVE_STATUSES);
         int remaining = Math.max(0, SLOT_CAPACITY - booked);
 
-        boolean validForCustomer = isWithinBookingWindow(customer, slot)
+        boolean validForCustomer = !slot.isAfter(LocalDateTime.now().plusDays(bookingWindowDays))
                 && slot.isAfter(LocalDateTime.now());
 
         return AvailabilitySlotResponse.builder()
@@ -695,11 +710,12 @@ public class BookingService {
                     "Vui lòng đặt lịch trước ít nhất 30 phút");
         }
 
-        if (!isWithinBookingWindow(customer, scheduledAt)) {
+        int bookingWindowDays = getBookingWindowDays(customer);
+        if (!isWithinBookingWindow(customer, scheduledAt, bookingWindowDays)) {
             throw new BusinessException(String.format(
                     "Hạng %s chỉ được đặt lịch trong %d ngày tới",
                     customer.getTier(),
-                    customer.getTier().getBookingWindowDays()));
+                    bookingWindowDays));
         }
 
         int booked = bookingRepository
@@ -712,10 +728,10 @@ public class BookingService {
 
     private boolean isWithinBookingWindow(
             Customer customer,
-            LocalDateTime scheduledAt) {
+            LocalDateTime scheduledAt,
+            int bookingWindowDays) {
         return !scheduledAt.isAfter(
-                LocalDateTime.now()
-                        .plusDays(customer.getTier().getBookingWindowDays()));
+                LocalDateTime.now().plusDays(bookingWindowDays));
     }
 
     private void validateStatusTransition(
@@ -778,7 +794,7 @@ public class BookingService {
         if (userDetails == null)
             return false;
         return userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
+                .map(auth -> auth.getAuthority())
                 .anyMatch("ROLE_ADMIN"::equals);
     }
 

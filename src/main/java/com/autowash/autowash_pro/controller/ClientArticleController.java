@@ -25,31 +25,20 @@ public class ClientArticleController {
 
     private final ArticleService articleService;
 
-    // 1. API LẤY DANH SÁCH BÀI VIẾT ĐÃ XUẤT BẢN (PUBLISHED)
     @GetMapping
     @Operation(summary = "Lấy danh sách cẩm nang đã xuất bản (PUBLISHED)")
     public ResponseEntity<List<Article>> getClientArticles(
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "search", required = false) String search) {
-        
+
         List<Article> articles = articleService.getClientArticles(category, search);
         return ResponseEntity.ok(articles);
     }
 
-    // 2. API LẤY CHI TIẾT BÀI VIẾT THEO SLUG HOẶC ID
     @GetMapping("/{slug}")
-    @Operation(summary = "Lấy chi tiết cẩm nang theo Slug hoặc ID")
+    @Operation(summary = "Lấy chi tiết cẩm nang theo Slug")
     public ResponseEntity<?> getArticleBySlug(@PathVariable String slug) {
         try {
-            // Kiểm tra nếu slug thực chất là UUID ID
-            try {
-                UUID id = UUID.fromString(slug);
-                Article article = articleService.getArticleById(id);
-                return ResponseEntity.ok(article);
-            } catch (IllegalArgumentException e) {
-                // Không phải UUID, tìm theo slug thông thường
-            }
-
             Article article = articleService.getArticleBySlug(slug);
             return ResponseEntity.ok(article);
         } catch (Exception e) {
@@ -57,7 +46,6 @@ public class ClientArticleController {
         }
     }
 
-    // 3. API LẤY CHI TIẾT BÀI VIẾT THEO ID
     @GetMapping("/detail/{id}")
     @Operation(summary = "Lấy chi tiết cẩm nang theo ID")
     public ResponseEntity<?> getArticleById(@PathVariable UUID id) {

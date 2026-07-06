@@ -34,7 +34,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-// 🌟 THÊM DÒNG NÀY: Bỏ qua các trường ẩn do Hibernate tự sinh khi Lazy Loading, giải quyết triệt để lỗi 500 Property not found!
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Customer {
 
