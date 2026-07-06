@@ -7,11 +7,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.autowash.autowash_pro.entity.Promotion;
 
-@Repository
 public interface PromotionRepository extends JpaRepository<Promotion, UUID> {
 
        // 1. Tab "Tất cả": Sử dụng hàm findAll() mặc định sẵn có của JpaRepository
