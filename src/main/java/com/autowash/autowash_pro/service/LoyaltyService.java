@@ -2,11 +2,9 @@ package com.autowash.autowash_pro.service;
 
 import com.autowash.autowash_pro.dto.request.loyalty.EarnPointsRequest;
 import com.autowash.autowash_pro.dto.request.loyalty.RedeemPointsRequest;
-import com.autowash.autowash_pro.dto.request.loyalty.UpdateTierConfigRequest;
 import com.autowash.autowash_pro.dto.response.loyalty.*;
 import com.autowash.autowash_pro.entity.Customer;
 import com.autowash.autowash_pro.entity.CustomerPoints;
-import com.autowash.autowash_pro.entity.LoyaltyTierConfig;
 import com.autowash.autowash_pro.enums.PointType;
 import com.autowash.autowash_pro.enums.RedeemType;
 import com.autowash.autowash_pro.enums.Tier;
@@ -16,7 +14,6 @@ import com.autowash.autowash_pro.entity.SystemConfig;
 import com.autowash.autowash_pro.entity.TierRule;
 import com.autowash.autowash_pro.repository.CustomerPointsRepository;
 import com.autowash.autowash_pro.repository.CustomerRepository;
-import com.autowash.autowash_pro.repository.LoyaltyTierConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,55 +35,8 @@ public class LoyaltyService {
 
     private final CustomerRepository customerRepository;
     private final CustomerPointsRepository customerPointsRepository;
-    private final LoyaltyTierConfigRepository loyaltyTierConfigRepository;
     private final NotificationService notificationService;
     private final AdminConfigService adminConfigService;
-
-    // =========================================================================
-    // Admin: Xem cấu hình điểm thưởng
-    // GET /api/admin/tier-config
-    // =========================================================================
-
-    @Transactional(readOnly = true)
-    public TierConfigResponse getTierConfig() {
-        LoyaltyTierConfig config = findActiveConfig();
-        return mapToTierConfigResponse(config);
-    }
-
-    // =========================================================================
-    // Admin: Cập nhật cấu hình điểm thưởng
-    // PUT /api/admin/tier-config
-    // =========================================================================
-
-    public TierConfigResponse updateTierConfig(UpdateTierConfigRequest request, String adminPhone) {
-        Customer admin = findCustomerByPhone(adminPhone);
-        if (!admin.isAdmin()) {
-            throw new BusinessException("Chỉ admin mới có quyền cập nhật cấu hình điểm thưởng");
-        }
-
-        // Deactivate config hiện tại (audit trail — giữ lại lịch sử)
-        loyaltyTierConfigRepository.findByActiveTrue().ifPresent(old -> {
-            old.setActive(false);
-            loyaltyTierConfigRepository.save(old);
-        });
-
-        // Tạo config mới
-        LoyaltyTierConfig newConfig = LoyaltyTierConfig.builder()
-                .vndPerPoint(request.getVndPerPoint())
-                .multiplierMember(request.getMultiplierMember())
-                .multiplierSilver(request.getMultiplierSilver())
-                .multiplierGold(request.getMultiplierGold())
-                .multiplierPlatinum(request.getMultiplierPlatinum())
-                .pointExpiryMonths(request.getPointExpiryMonths())
-                .active(true)
-                .updatedBy(admin.getCustomerId())
-                .build();
-
-        loyaltyTierConfigRepository.save(newConfig);
-        log.info("[Admin {}] Đã cập nhật tier config: {} VND/point", admin.getCustomerId(), request.getVndPerPoint());
-
-        return mapToTierConfigResponse(newConfig);
-    }
 
     // =========================================================================
     // Loyalty: Tích điểm sau khi rửa xe xong
@@ -95,16 +45,20 @@ public class LoyaltyService {
 
     public EarnPointsResponse earnPoints(EarnPointsRequest request) {
         Customer customer = findCustomerById(request.getCustomerId());
-        LoyaltyTierConfig config = findActiveConfig();
+        SystemConfig systemConfig = adminConfigService.getSystemConfig();
+
+        // Lấy tỷ lệ quy đổi từ SystemConfig
+        String cleanRate = systemConfig.getPointRate().replace(".", "").replace(",", "").trim();
+        java.math.BigDecimal vndPerPoint = new java.math.BigDecimal(cleanRate);
 
         int points;
         if (request.getCustomPoints() != null && request.getCustomPoints() > 0) {
             points = request.getCustomPoints();
         } else {
-            // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier
-            double multiplier = getTierMultiplier(config, customer.getTier());
+            // Tính điểm: (amountPaid / vndPerPoint) × tierMultiplier từ SystemConfig / TierRule
+            double multiplier = getTierRuleMultiplier(systemConfig, customer.getTier());
             points = (int) (request.getAmountPaid()
-                    .divide(config.getVndPerPoint(), 4, RoundingMode.FLOOR)
+                    .divide(vndPerPoint, 4, RoundingMode.FLOOR)
                     .doubleValue() * multiplier);
         }
 
@@ -138,7 +92,7 @@ public class LoyaltyService {
                 .balanceAfter(newBalance)
                 .referenceId(request.getWashId())
                 .description(String.format("Tích điểm rửa xe %.0f VND", request.getAmountPaid()))
-                .expiresAt(LocalDateTime.now().plusMonths(config.getPointExpiryMonths()))
+                .expiresAt(LocalDateTime.now().plusMonths(12))
                 .build();
 
         customerPointsRepository.save(pointLog);
@@ -263,8 +217,6 @@ public class LoyaltyService {
             remainingVisits = Math.max(0, platinumThreshold - visits);
         }
 
-        LoyaltyTierConfig activeTierConfig = findActiveConfig();
-
         return PointBalanceResponse.builder()
                 .customerId(customerId)
                 .fullName(customer.getFullName())
@@ -362,24 +314,18 @@ public class LoyaltyService {
     }
 
     // =========================================================================
-    // Cron: Rà soát tier tự động — chạy lúc 01:00 ngày 1 mỗi tháng
+    // Cron: Rà soát tier tự động — chạy lúc 01:00 mỗi ngày
     // =========================================================================
 
-    @Scheduled(cron = "0 0 1 1 * *")
+    @Scheduled(cron = "0 0 1 * * *")
     public void scheduledTierReview() {
-        log.info("[ScheduledTierReview] Tự động rà soát tier đầu tháng...");
+        log.info("[ScheduledTierReview] Tự động rà soát tier mỗi ngày...");
         runTierReview();
     }
 
     // =========================================================================
     // Private helpers
     // =========================================================================
-
-    private LoyaltyTierConfig findActiveConfig() {
-        return loyaltyTierConfigRepository.findByActiveTrue()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Chưa có cấu hình điểm nào active. Vui lòng liên hệ Admin thiết lập."));
-    }
 
     private Customer findCustomerById(UUID customerId) {
         return customerRepository.findById(customerId)
@@ -408,15 +354,21 @@ public class LoyaltyService {
         }
     }
 
-    private double getTierMultiplier(LoyaltyTierConfig config, Tier tier) {
+    private double getTierRuleMultiplier(SystemConfig config, Tier tier) {
+        if (config.getTierRules() != null) {
+            for (TierRule rule : config.getTierRules()) {
+                if (rule.getTier().equalsIgnoreCase(tier.name())) {
+                    return rule.getMultiplier() / 100.0;
+                }
+            }
+        }
         return switch (tier) {
-            case SILVER -> config.getMultiplierSilver();
-            case GOLD -> config.getMultiplierGold();
-            case PLATINUM -> config.getMultiplierPlatinum();
-            default -> config.getMultiplierMember();
+            case SILVER -> 1.10;
+            case GOLD -> 1.25;
+            case PLATINUM -> 1.50;
+            default -> 1.0;
         };
     }
-
 
     /**
      * Trừ điểm theo FIFO — điểm sắp hết hạn nhất bị trừ trước.
@@ -481,20 +433,6 @@ public class LoyaltyService {
     }
 
     // ─── Mappers ──────────────────────────────────────────────────────────────
-
-    private TierConfigResponse mapToTierConfigResponse(LoyaltyTierConfig config) {
-        return TierConfigResponse.builder()
-                .configId(config.getConfigId())
-                .vndPerPoint(config.getVndPerPoint())
-                .multiplierMember(config.getMultiplierMember())
-                .multiplierSilver(config.getMultiplierSilver())
-                .multiplierGold(config.getMultiplierGold())
-                .multiplierPlatinum(config.getMultiplierPlatinum())
-                .pointExpiryMonths(config.getPointExpiryMonths())
-                .updatedAt(config.getUpdatedAt())
-                .updatedBy(config.getUpdatedBy())
-                .build();
-    }
 
     private PointHistoryResponse mapToPointHistoryResponse(CustomerPoints points) {
         return PointHistoryResponse.builder()

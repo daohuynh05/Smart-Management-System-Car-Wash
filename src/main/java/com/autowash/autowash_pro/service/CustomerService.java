@@ -8,7 +8,6 @@ import com.autowash.autowash_pro.enums.Tier;
 import com.autowash.autowash_pro.exception.BusinessException;
 import com.autowash.autowash_pro.exception.ResourceNotFoundException;
 import com.autowash.autowash_pro.repository.CustomerRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
@@ -32,13 +31,10 @@ public class CustomerService {
 
     private final PasswordEncoder passwordEncoder;
 
-    // Lấy toàn bộ danh sách khách hàng từ database đám mây Supabase
     public List<Customer> getAllCustomers() {
         return customerRepository.findAll();
     }
 
-    // 🌟 THAY THẾ & NÂNG CẤP HÀM NÀY: Lấy danh sách khách hàng kết hợp bộ lọc Tìm
-    // kiếm và Phân hạng Tier
     public List<Customer> getAdminCustomers(String keyword, String tierStr) {
         // 1. Nếu Admin điền từ khóa vào ô Search -> Ưu tiên tìm kiếm theo Tên hoặc Số
         // điện thoại
@@ -110,7 +106,7 @@ public class CustomerService {
         return customerRepository.save(customer);
     }
 
-    // 3. Logic thay đổi trạng thái linh hoạt (Đóng/Mở khóa) không phụ thuộc DTO
+    // khóa mở tài khoản của người dùng.
     @Transactional
     public void toggleCustomerStatus(UUID id, boolean status) {
         Customer customer = getCustomerById(id);
@@ -118,7 +114,7 @@ public class CustomerService {
         customerRepository.save(customer);
     }
 
-    // Giữ nguyên hàm cũ để không lỗi các chức năng khác
+    // khóa tài khoản người dùng
     @Transactional
     public void disableCustomer(UUID id) {
         Customer customer = getCustomerById(id);

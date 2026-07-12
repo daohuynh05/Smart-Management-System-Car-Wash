@@ -227,7 +227,7 @@ public class BookingService {
             throw new BusinessException("Vui lòng chọn ít nhất một dịch vụ để đặt lịch");
         }
 
-        java.util.List<WashService> selectedServices = washServiceRepository.findAllById(request.getServiceIds());
+        List<WashService> selectedServices = washServiceRepository.findAllById(request.getServiceIds());
         if (selectedServices.isEmpty()) {
             throw new BusinessException("Các dịch vụ được chọn không hợp lệ hoặc không tồn tại");
         }
@@ -264,8 +264,7 @@ public class BookingService {
             if (targetTiers != null && !targetTiers.trim().isEmpty()) {
                 for (String t : targetTiers.split(",")) {
                     try {
-                        com.autowash.autowash_pro.enums.Tier targetTier = com.autowash.autowash_pro.enums.Tier
-                                .valueOf(t.trim().toUpperCase());
+                        Tier targetTier = Tier.valueOf(t.trim().toUpperCase());
                         int rank = switch (targetTier) {
                             case MEMBER -> 1;
                             case SILVER -> 2;
@@ -347,7 +346,7 @@ public class BookingService {
                 loyaltyService.deductPointsFifo(customer, pointsToUse);
 
                 // Ghi nhận dòng log REDEEM điểm vào lịch sử
-                com.autowash.autowash_pro.entity.CustomerPoints redeemLog = com.autowash.autowash_pro.entity.CustomerPoints
+                CustomerPoints redeemLog = CustomerPoints
                         .builder()
                         .customer(customer)
                         .type(PointType.REDEEM)
