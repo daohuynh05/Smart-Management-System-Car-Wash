@@ -17,17 +17,14 @@ import org.springframework.web.bind.annotation.RestController;
 import com.autowash.autowash_pro.entity.Article;
 import com.autowash.autowash_pro.service.ArticleService;
 
+import lombok.RequiredArgsConstructor;
+
 @RestController
 @RequestMapping("/api/admin/articles")
-@CrossOrigin(origins = "http://localhost:5173") // cần sửa laij
+@RequiredArgsConstructor
 public class ArticleController {
 
     private final ArticleService articleService;
-
-    // Constructor Injection đồng bộ hệ thống
-    public ArticleController(ArticleService articleService) {
-        this.articleService = articleService;
-    }
 
     // 1. API LẤY DANH SÁCH BÀI VIẾT (GET)
     // Hỗ trợ cả Tab trạng thái (?status=DRAFT) và ô Tìm kiếm (?search=tieu_de)

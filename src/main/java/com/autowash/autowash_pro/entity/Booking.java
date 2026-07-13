@@ -36,8 +36,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-// 🌟 ĐÃ THÊM: Ngăn chặn lỗi nổ Proxy kĩ thuật khi Jackson bốc dữ liệu Booking
-// tuần tự trả về UI công khai
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class Booking {
 

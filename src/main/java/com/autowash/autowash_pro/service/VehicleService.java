@@ -1,7 +1,9 @@
 package com.autowash.autowash_pro.service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,78 +32,78 @@ public class VehicleService {
 
     private VehicleResponse mapToResponse(Vehicle vehicle) {
         List<Booking> bookings = bookingRepository.findByVehicle_VehicleIdAndStatusOrderByScheduledAtDesc(
-            vehicle.getVehicleId(), BookingStatus.DONE);
-        
+                vehicle.getVehicleId(), BookingStatus.DONE);
+
         String lastWashService = null;
         String lastWashDate = null;
-        
+
         if (!bookings.isEmpty()) {
             Booking lastBooking = bookings.get(0);
             if (lastBooking.getBookingServices() != null && !lastBooking.getBookingServices().isEmpty()) {
                 lastWashService = lastBooking.getBookingServices().stream()
-                    .map(bs -> bs.getWashService().getName())
-                    .collect(java.util.stream.Collectors.joining(", "));
+                        .map(bs -> bs.getWashService().getName())
+                        .collect(Collectors.joining(", "));
             } else if (lastBooking.getServiceType() != null) {
                 lastWashService = lastBooking.getServiceType().name();
             }
-            
+
             if (lastBooking.getScheduledAt() != null) {
-                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
                 lastWashDate = lastBooking.getScheduledAt().format(formatter);
             }
         }
-        
+
         return VehicleResponse.builder()
-            .vehicleId(vehicle.getVehicleId())
-            .licensePlate(vehicle.getLicensePlate())
-            .vehicleType(vehicle.getVehicleType())
-            .brand(vehicle.getBrand())
-            .color(vehicle.getColor())
-            .primary(vehicle.isPrimary())
-            .createdAt(vehicle.getCreatedAt())
-            .lastWashService(lastWashService)
-            .lastWashDate(lastWashDate)
-            .build();
+                .vehicleId(vehicle.getVehicleId())
+                .licensePlate(vehicle.getLicensePlate())
+                .vehicleType(vehicle.getVehicleType())
+                .brand(vehicle.getBrand())
+                .color(vehicle.getColor())
+                .primary(vehicle.isPrimary())
+                .createdAt(vehicle.getCreatedAt())
+                .lastWashService(lastWashService)
+                .lastWashDate(lastWashDate)
+                .build();
     }
 
     @Transactional(readOnly = true)
     public List<VehicleResponse> getMyVehicles(String phone) {
         Customer customer = getCustomer(phone);
         return vehicleRepository
-            .findByCustomer_CustomerIdOrderByCreatedAtDesc(
-                customer.getCustomerId())
-            .stream()
-            .map(this::mapToResponse)
-            .toList();
+                .findByCustomer_CustomerIdOrderByCreatedAtDesc(
+                        customer.getCustomerId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     @Transactional
     public VehicleResponse createVehicle(String phone, VehicleRequest request) {
         Customer customer = getCustomer(phone);
         String licensePlate = normalizeLicensePlate(
-            request.getLicensePlate());
+                request.getLicensePlate());
 
         if (vehicleRepository.existsByLicensePlate(licensePlate)) {
             throw new BusinessException("Bien so xe da ton tai");
         }
 
         boolean hasNoVehicles = vehicleRepository
-            .countByCustomer_CustomerId(customer.getCustomerId()) == 0;
+                .countByCustomer_CustomerId(customer.getCustomerId()) == 0;
         boolean shouldBePrimary = hasNoVehicles
-            || Boolean.TRUE.equals(request.getPrimary());
+                || Boolean.TRUE.equals(request.getPrimary());
 
         if (shouldBePrimary) {
             clearPrimaryVehicle(customer.getCustomerId());
         }
 
         Vehicle vehicle = Vehicle.builder()
-            .customer(customer)
-            .licensePlate(licensePlate)
-            .vehicleType(trim(request.getVehicleType()))
-            .brand(trim(request.getBrand()))
-            .color(trim(request.getColor()))
-            .isPrimary(shouldBePrimary)
-            .build();
+                .customer(customer)
+                .licensePlate(licensePlate)
+                .vehicleType(trim(request.getVehicleType()))
+                .brand(trim(request.getBrand()))
+                .color(trim(request.getColor()))
+                .isPrimary(shouldBePrimary)
+                .build();
 
         return mapToResponse(vehicleRepository.save(vehicle));
     }
@@ -112,7 +114,7 @@ public class VehicleService {
         Customer customer = getCustomer(phone);
         Vehicle vehicle = getOwnedVehicle(vehicleId, customer);
         String licensePlate = normalizeLicensePlate(
-            request.getLicensePlate());
+                request.getLicensePlate());
 
         if (vehicleRepository.existsByLicensePlateAndVehicleIdNot(
                 licensePlate, vehicleId)) {
@@ -140,7 +142,7 @@ public class VehicleService {
 
         if (bookingRepository.existsByVehicle_VehicleId(vehicleId)) {
             throw new BusinessException(
-                "Khong the xoa xe da co lich dat");
+                    "Khong the xoa xe da co lich dat");
         }
 
         boolean wasPrimary = vehicle.isPrimary();
@@ -148,14 +150,14 @@ public class VehicleService {
 
         if (wasPrimary) {
             vehicleRepository
-                .findByCustomer_CustomerIdOrderByCreatedAtDesc(
-                    customer.getCustomerId())
-                .stream()
-                .findFirst()
-                .ifPresent(nextPrimary -> {
-                    nextPrimary.setPrimary(true);
-                    vehicleRepository.save(nextPrimary);
-                });
+                    .findByCustomer_CustomerIdOrderByCreatedAtDesc(
+                            customer.getCustomerId())
+                    .stream()
+                    .findFirst()
+                    .ifPresent(nextPrimary -> {
+                        nextPrimary.setPrimary(true);
+                        vehicleRepository.save(nextPrimary);
+                    });
         }
     }
 
@@ -172,25 +174,25 @@ public class VehicleService {
 
     private Customer getCustomer(String phone) {
         return customerRepository.findByPhone(phone)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Khong tim thay khach hang"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Khong tim thay khach hang"));
     }
 
     private Vehicle getOwnedVehicle(UUID vehicleId, Customer customer) {
         return vehicleRepository
-            .findByVehicleIdAndCustomer_CustomerId(
-                vehicleId, customer.getCustomerId())
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Khong tim thay xe"));
+                .findByVehicleIdAndCustomer_CustomerId(
+                        vehicleId, customer.getCustomerId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Khong tim thay xe"));
     }
 
     private void clearPrimaryVehicle(UUID customerId) {
         vehicleRepository
-            .findByCustomer_CustomerIdAndIsPrimaryTrue(customerId)
-            .ifPresent(primaryVehicle -> {
-                primaryVehicle.setPrimary(false);
-                vehicleRepository.save(primaryVehicle);
-            });
+                .findByCustomer_CustomerIdAndIsPrimaryTrue(customerId)
+                .ifPresent(primaryVehicle -> {
+                    primaryVehicle.setPrimary(false);
+                    vehicleRepository.save(primaryVehicle);
+                });
     }
 
     private String normalizeLicensePlate(String licensePlate) {

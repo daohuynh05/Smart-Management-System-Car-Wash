@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin/customers")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Customer Admin", description = "Quản lý danh sách khách hàng dành cho Admin")
 public class CustomerController {
 
@@ -52,7 +54,8 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật thông tin khách hàng")
-    public ResponseEntity<CustomerProfileResponse> updateCustomer(@PathVariable UUID id, @RequestBody CustomerRequestDTO dto) {
+    public ResponseEntity<CustomerProfileResponse> updateCustomer(@PathVariable UUID id,
+            @RequestBody CustomerRequestDTO dto) {
         Customer customer = customerService.updateCustomer(id, dto);
         return ResponseEntity.ok(CustomerProfileResponse.from(customer));
     }

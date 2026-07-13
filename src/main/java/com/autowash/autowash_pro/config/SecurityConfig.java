@@ -48,13 +48,7 @@ public class SecurityConfig {
                                                                 "/swagger-ui.html",
                                                                 "/v3/api-docs/**",
                                                                 "/ws/**",
-                                                                "/api/articles/**",
-                                                                "/api/articles",
-                                                                "/error",
-
-                                                                // 🛠️ ĐÃ THÊM ĐƯỜNG DẪN NÀY ĐỂ BỎ QUA TOKEN KHI ADMIN
-                                                                // QUẢN LÝ KHÁCH HÀNG TẠI QUẦY:
-                                                                "/api/admin/customers/**")
+                                                                "/error")
                                                 .permitAll()
                                                 .requestMatchers("/api/admin/**")
                                                 .hasRole("ADMIN")

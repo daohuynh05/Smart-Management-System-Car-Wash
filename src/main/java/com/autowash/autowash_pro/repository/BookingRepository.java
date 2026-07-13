@@ -6,12 +6,10 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import com.autowash.autowash_pro.entity.Booking;
 import com.autowash.autowash_pro.enums.BookingStatus;
 
-@Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @EntityGraph(attributePaths = { "customer", "vehicle", "washHistory" })
@@ -50,7 +48,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     boolean existsByVehicle_VehicleId(UUID vehicleId);
 
-    boolean existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(UUID customerId, UUID promoId, BookingStatus status);
+    boolean existsByCustomer_CustomerIdAndPromotion_PromoIdAndStatusNot(UUID customerId, UUID promoId,
+            BookingStatus status);
 
     @EntityGraph(attributePaths = { "bookingServices", "bookingServices.washService" })
     List<Booking> findByVehicle_VehicleIdAndStatusOrderByScheduledAtDesc(UUID vehicleId, BookingStatus status);

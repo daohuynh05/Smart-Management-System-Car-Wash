@@ -1,13 +1,9 @@
 spring:
   datasource:
-    # 1. Đã cập nhật đúng host aws-1-ap-northeast-1 của bạn
-    # 2. Giữ nguyên cổng 6543 và thêm sslmode=require ở cuối
     url: jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
 
-    # Username đúng cấu trúc dựa trên chuỗi JDBC của bạn
     username: postgres.ksmnsefgguukmfzdadcd
 
-    # Mật khẩu database của bạn (nhớ thay đổi nếu bạn có cập nhật mật khẩu mới)
     password: 'autowashcar123'
 
     driver-class-name: org.postgresql.Driver

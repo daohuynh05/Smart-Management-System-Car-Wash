@@ -15,6 +15,7 @@ import com.autowash.autowash_pro.dto.response.auth.AuthResponse;
 import com.autowash.autowash_pro.dto.request.auth.LoginRequest;
 import com.autowash.autowash_pro.dto.request.auth.RefreshTokenRequest;
 import com.autowash.autowash_pro.dto.request.auth.RegisterRequest;
+import com.autowash.autowash_pro.dto.request.customer.CustomerRequestDTO;
 import com.autowash.autowash_pro.dto.response.customer.CustomerProfileResponse;
 import com.autowash.autowash_pro.service.AuthService;
 import com.autowash.autowash_pro.service.CustomerService;
@@ -38,8 +39,8 @@ public class AuthController {
     public ResponseEntity<AuthResponse> register(
             @RequestBody @Valid RegisterRequest request) {
         return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(authService.register(request));
+                .status(HttpStatus.CREATED)
+                .body(authService.register(request));
     }
 
     @PostMapping("/login")
@@ -67,7 +68,7 @@ public class AuthController {
     @PutMapping("/me")
     @Operation(summary = "Cập nhật thông tin tài khoản của người dùng hiện tại")
     public ResponseEntity<CustomerProfileResponse> updateMyProfile(
-            @RequestBody @Valid com.autowash.autowash_pro.dto.request.customer.CustomerRequestDTO request,
+            @RequestBody @Valid CustomerRequestDTO request,
             @AuthenticationPrincipal UserDetails userDetails) {
         String phone = userDetails.getUsername();
         return ResponseEntity.ok(customerService.updateMyProfile(phone, request));

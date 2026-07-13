@@ -38,41 +38,53 @@ public class AdminConfigService {
         }
 
         existing.setPointRate(newConfig.getPointRate());
-        
-        // Update tier rules
-        if (existing.getTierRules() == null) {
-            existing.setTierRules(new ArrayList<>());
-        } else {
-            existing.getTierRules().clear();
+
+        // Cập nhật Tier Rules một cách an toàn
+        List<TierRule> existingRules = existing.getTierRules();
+        if (existingRules == null) {
+            existingRules = new ArrayList<>();
+            existing.setTierRules(existingRules);
         }
 
         if (newConfig.getTierRules() != null) {
-            for (TierRule rule : newConfig.getTierRules()) {
-                // Ensure proper label and className if not provided
-                if (rule.getLabel() == null) {
-                    rule.setLabel(rule.getTier().toUpperCase());
+            List<TierRule> updatedRules = new ArrayList<>();
+            for (TierRule incomingRule : newConfig.getTierRules()) {
+                if (incomingRule.getLabel() == null) {
+                    incomingRule.setLabel(incomingRule.getTier().toUpperCase());
                 }
-                if (rule.getClassName() == null) {
-                    rule.setClassName("bg-tier-" + rule.getTier().toLowerCase());
+                if (incomingRule.getClassName() == null) {
+                    incomingRule.setClassName("bg-tier-" + incomingRule.getTier().toLowerCase());
                 }
-                existing.getTierRules().add(rule);
+
+                TierRule matchedRule = existingRules.stream()
+                        .filter(r -> r.getTier().equalsIgnoreCase(incomingRule.getTier()))
+                        .findFirst()
+                        .orElse(null);
+
+                if (matchedRule != null) {
+                    matchedRule.setName(incomingRule.getName());
+                    matchedRule.setThreshold(incomingRule.getThreshold());
+                    matchedRule.setBookingWindow(incomingRule.getBookingWindow());
+                    matchedRule.setMultiplier(incomingRule.getMultiplier());
+                    matchedRule.setPerks(incomingRule.getPerks());
+                    matchedRule.setLabel(incomingRule.getLabel());
+                    matchedRule.setClassName(incomingRule.getClassName());
+                    updatedRules.add(matchedRule);
+                } else {
+                    incomingRule.setId(null);
+                    updatedRules.add(incomingRule);
+                }
             }
+            existingRules.clear();
+            existingRules.addAll(updatedRules);
         }
 
         return systemConfigRepository.save(existing);
     }
 
-    public List<Reward> getRewards() {
-        List<Reward> rewards = rewardRepository.findAll();
-        if (rewards.isEmpty()) {
-            return initializeDefaultRewards();
-        }
-        return rewards;
-    }
-
     public Reward addReward(Reward reward) {
         if (reward.getTierClassName() == null && reward.getMinimumTier() != null) {
-            reward.setTierClassName("bg-tier-" + reward.getMinimumTier().toLowerCase());
+            reward.setTierClassName("tier-" + reward.getMinimumTier().toLowerCase());
         }
         return rewardRepository.save(reward);
     }
@@ -91,7 +103,7 @@ public class AdminConfigService {
                 .bookingWindow(3)
                 .multiplier(100)
                 .perks("Thành viên mới đăng ký. Tích điểm cơ bản cho mỗi dịch vụ.")
-                .className("bg-tier-member")
+                .className("tier-member")
                 .build());
         rules.add(TierRule.builder()
                 .tier("silver")
@@ -101,7 +113,7 @@ public class AdminConfigService {
                 .bookingWindow(7)
                 .multiplier(110)
                 .perks("Giảm giá 5% cho các dịch vụ rửa xe cao cấp. Ưu tiên đặt lịch trước 7 ngày.")
-                .className("bg-tier-silver")
+                .className("tier-silver")
                 .build());
         rules.add(TierRule.builder()
                 .tier("gold")
@@ -111,7 +123,7 @@ public class AdminConfigService {
                 .bookingWindow(14)
                 .multiplier(125)
                 .perks("Miễn phí dịch vụ hút bụi. Giảm giá 10% các gói Detail. Ưu tiên hàng chờ cao.")
-                .className("bg-tier-gold" )
+                .className("tier-gold")
                 .build());
         rules.add(TierRule.builder()
                 .tier("platinum")
@@ -121,7 +133,7 @@ public class AdminConfigService {
                 .bookingWindow(30)
                 .multiplier(150)
                 .perks("Chăm sóc đặc biệt. Miễn phí nâng cấp gói rửa. Quà tặng sinh nhật trị giá 500k.")
-                .className("bg-tier-platinum")
+                .className("tier-platinum")
                 .build());
 
         SystemConfig config = SystemConfig.builder()
@@ -132,21 +144,4 @@ public class AdminConfigService {
         return systemConfigRepository.save(config);
     }
 
-    private List<Reward> initializeDefaultRewards() {
-        List<Reward> defaultRewards = new ArrayList<>();
-        defaultRewards.add(Reward.builder()
-                .name("Voucher Rửa xe 0đ")
-                .points("500")
-                .minimumTier("SILVER")
-                .tierClassName("bg-tier-silver")
-                .build());
-        defaultRewards.add(Reward.builder()
-                .name("Nước hoa xe hơi cao cấp")
-                .points("1.200")
-                .minimumTier("GOLD")
-                .tierClassName("bg-tier-gold")
-                .build());
-        
-        return rewardRepository.saveAll(defaultRewards);
-    }
 }

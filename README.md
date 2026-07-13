@@ -1,109 +1,122 @@
-# AutoWash Pro Backend
+# 🚗 AutoWash Pro - Dự án Quản lý Rửa xe thông minh (Loyalty & CRM)
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-Starter-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue.svg)](https://www.postgresql.org/)
-[![Flyway](https://img.shields.io/badge/Flyway-Enabled-red.svg)](https://flywaydb.org/)
-
-**AutoWash Pro** là hệ thống quản lý và đặt lịch rửa xe thông minh chuyên nghiệp (quản lý dịch vụ cho cả Ô tô và Xe máy), tích hợp công nghệ lưu trữ Supabase PostgreSQL, dịch vụ hàng đợi ưu tiên theo hạng thành viên (Loyalty Tiers), tích lũy & khấu trừ điểm trực tiếp khi đặt lịch, quản lý khuyến mãi phân cấp, và hệ thống báo cáo doanh thu trực quan cho quản trị viên.
+**AutoWash Pro** là đồ án/dự án xây dựng hệ thống quản lý tiệm rửa xe máy thông minh, tập trung vào chăm sóc khách hàng (CRM) và tích điểm thành viên (Loyalty). Hệ thống giúp khách hàng đặt lịch online dễ dàng và giúp admin quản lý hàng đợi, cấu hình thăng hạng và áp dụng khuyến mãi tại quầy.
 
 ---
 
-## 🌟 Tính Năng Nổi Bật Hiện Tại
+## 🗺️ Sơ Sơ đồ Thiết kế & UML (UML Diagrams)
 
-### 1. Loyalty Engine & Phân Hạng Thành Viên
-* **Hệ thống 4 hạng thành viên**: `MEMBER` (Cấp 1) $\rightarrow$ `SILVER` (Cấp 2) $\rightarrow$ `GOLD` (Cấp 3) $\rightarrow$ `PLATINUM` (Cấp 4).
-* **Tự động thăng hạng theo số lượt rửa xe (`totalVisits` / `visits`)**:
-  * `< 10` lượt rửa: Hạng **MEMBER**.
-  * `$\ge$ 10` lượt rửa: Lên hạng **SILVER**.
-  * `$\ge$ 25` lượt rửa: Lên hạng **GOLD**.
-  * `$\ge$ 50` lượt rửa: Lên hạng **PLATINUM**.
-  *(Các ngưỡng thăng hạng này được cấu hình động trong Hệ thống).*
-* **Tích lũy chi tiêu**: Tích lũy tổng chi tiêu thực tế (`totalSpend`) và số lượt rửa xe thành công (`totalVisits`) tự động khi đơn hàng hoàn thành (`DONE`).
-* **Hệ thống trừ điểm FIFO**: Hỗ trợ khấu trừ điểm thưởng trực tiếp khi đặt lịch để giảm trừ tiền mặt (Quy đổi: 1 điểm = 100đ). Hỗ trợ quản lý điểm hết hạn sau 12 tháng theo cơ chế FIFO.
+Để dễ hình dung cách hệ thống vận hành, tụi mình đã vẽ các sơ đồ UML và lưu sẵn ảnh trong thư mục [doc](file:///d:/Java/autowash-pro/doc/):
 
-### 2. Hệ Thống Đặt Lịch (Booking System)
-* **Cửa sổ đặt lịch thông minh theo hạng**:
-  * `MEMBER`: Đặt trước tối đa 7 ngày.
-  * `SILVER`: Đặt trước tối đa 10 ngày.
-  * `GOLD`: Đặt trước tối đa 12 ngày.
-  * `PLATINUM`: Đặt trước tối đa 14 ngày.
-* **Hàng đợi ưu tiên**: Điểm ưu tiên (`priorityScore`) được tính toán tự động dựa trên hạng thành viên của khách hàng để tối ưu hóa thứ tự phục vụ tại tiệm.
-* **Đa dịch vụ & Gói Combo**: Hỗ trợ đặt một hoặc nhiều dịch vụ đơn lẻ hoặc các gói combo chăm sóc xe chuyên sâu cùng lúc.
+### 1. Kiến trúc hệ thống (System Structure)
+Sơ đồ mô tả kết nối từ Frontend SPA đến Spring Boot Backend và Database PostgreSQL:
+![Sơ đồ kiến trúc](doc/SystemStructure.png)
 
-### 3. Quản Lý Khuyến Mãi Phân Cấp (Hierarchical Promotions)
-* **Khuyến mãi đại trà**: Áp dụng chung cho tất cả các thành viên (MEMBER, SILVER, GOLD, PLATINUM).
-* **Khuyến mãi độc quyền**: Cấu hình giới hạn chỉ hiển thị và cho phép áp dụng đối với khách hàng đạt hạng thành viên tối thiểu yêu cầu (Ví dụ: Mã chỉ dành riêng cho hạng SILVER trở lên).
+### 2. Sơ đồ Use Case (Use Case Diagram)
+Các chức năng mà Khách hàng và Admin có thể thực hiện trên hệ thống:
+![Sơ đồ Use Case](doc/Usecase.png)
 
----
+### 3. Sơ Sơ đồ Lớp (Entity Class Diagram)
+Mô tả các thực thể JPA trong database và mối quan hệ giữa chúng:
+![Sơ đồ Lớp](doc/ClassDiagram.png)
 
-## 🛠️ Công Nghệ & Kiến Trúc Kỹ Thuật
+### 4. Luồng Đặt lịch & Loyalty (Sequence Diagram)
+Chi tiết các bước Đặt lịch rửa xe, trừ điểm tích lũy FIFO và Hoàn lại điểm khi khách hủy lịch:
+![Sơ đồ Trình tự](doc/BookingSQ.png)
 
-* **Ngôn ngữ & Framework**: Java 21 + Spring Boot + Spring Data JPA.
-* **Cơ sở dữ liệu**: PostgreSQL (Host trên Supabase Cloud).
-* **Quản lý database migration**: Flyway (Quét và chạy tự động trên classpath `db/migration`).
-* **Bộ nhớ đệm**: Redis (Hỗ trợ cache phiên làm việc và OTP).
-* **Bảo mật**: Spring Security + JWT Stateless Authentication.
-* **Gửi thông báo & OTP**: Tích hợp API Resend để gửi Email OTP đăng ký/đăng nhập và thông báo biến động điểm số.
-* **Thời gian thực**: WebSocket (STOMP Protocol) để đẩy thông tin cập nhật trạng thái đơn hàng.
+### 5. Sơ đồ Hoạt động (Activity Diagrams)
+Mô tả chi tiết luồng xử lý nghiệp vụ chính:
+* **Tiến trình Đặt lịch rửa xe (Booking Process):**
+  ![Sơ đồ Hoạt động Đặt lịch](doc/Activity_Booking.png)
+* **Tiến trình Tích điểm & Thăng hạng (Loyalty Process):**
+  ![Sơ đồ Hoạt động Tích điểm](doc/Activity_Loyalty.png)
 
 ---
 
-## 📁 Cấu Trúc Mã Nguồn
+## 📊 Bảng Đối Chiếu Yêu Cầu & Trạng Thái Thực Tế (Requirements & Gap Analysis)
 
-```
-src/main/java/com/autowash/autowash_pro/
-├── config/        Cấu hình Spring Security, CORS, JWT, Redis, WebSocket, Swagger
-├── controller/    Các Endpoint REST API (Auth, Customer, Booking, Vehicle, Admin, Service, Promotion)
-├── service/       Xử lý nghiệp vụ (BookingService, LoyaltyService, CustomerService, v.v.)
-├── repository/    Tương tác cơ sở dữ liệu (Spring Data JPA)
-├── entity/        Các thực thể JPA (Customer, Vehicle, Booking, WashHistory, CustomerPoints, Promotion, Services)
-├── dto/           Lớp vận chuyển dữ liệu Request/Response (Auth, Booking, Customer, Promotion, Service)
-├── enums/         Các kiểu Enum định nghĩa trạng thái và hạng (BookingStatus, Tier, PointType, PromoType)
-└── exception/     Quản lý lỗi tập trung (GlobalExceptionHandler)
-```
+Dưới đây là bảng so sánh nhanh giữa **Yêu cầu ban đầu** và **Kết quả thực tế trong code** để dễ theo dõi và đối chiếu:
 
----
-
-## 🗃️ Lịch Sử Migrations Cơ Sở Dữ Liệu (Flyway)
-
-Tọa lạc tại `src/main/resources/db/migration/`:
-* `V1__init_schema.sql`: Khởi tạo cấu trúc bảng cơ bản (`customers`, `vehicles`, `bookings`, `customer_points`, `promotions`, v.v.).
-* `V2__loyalty_tier_config.sql`: Khởi tạo cấu hình hạng thành viên và nhân tố tích lũy điểm.
-* `V3__add_services_and_combos.sql`: Thêm bảng quản lý dịch vụ (`services`, `booking_services`).
-* `V4__fix_null_service_values.sql`: Bổ sung ràng buộc dữ liệu dịch vụ.
-* `V5__add_promotion_to_bookings.sql`: Liên kết mã khuyến mãi vào thực thể đặt lịch.
-* `V6__add_max_discount_to_promotions.sql`: Thêm giới hạn tiền giảm giá tối đa cho mã khuyến mãi.
-* `V7__add_points_deduction_to_bookings.sql`: Bổ sung trường điểm khấu trừ và số tiền giảm trừ tương ứng khi đặt lịch.
-* `V8__sync_customer_stats.sql`: Tự động điền bù dữ liệu tổng tiền hóa đơn cũ bị NULL và đồng bộ hóa tổng chi tiêu (`total_spend`) cùng số lần rửa (`total_visits`) cho khách hàng cũ.
+| Phân hệ / Tính năng | Yêu cầu ban đầu | Trạng thái thực tế trong Code | File xử lý chính / Dẫn chứng |
+| :--- | :--- | :--- | :--- |
+| **Tích điểm & Thăng hạng** | • Chi tiêu tích điểm x hệ số hạng.<br>• Đếm lượt rửa để thăng hạng.<br>• Tự động nâng/hạ hạng hàng tháng. | **Xong & Cải tiến:**<br>• Tích điểm khi đơn chuyển sang `DONE` dựa trên hệ số cấu hình động.<br>• Thăng hạng dựa trên tổng số lượt rửa (`totalVisits`).<br>⚠️ **Chưa làm:** Logic tự động hạ hạng định kỳ hàng tháng. | • Tích điểm & Thăng hạng: `earnPoints()` & `checkAndUpdateTier()` trong [LoyaltyService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/LoyaltyService.java#L92-L165)<br>• Cron rà soát hạng: [LoyaltyService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/LoyaltyService.java#L368-L372) |
+| **Tiêu điểm & Hết hạn** | • Điểm hết hạn sau 12 tháng theo FIFO.<br>• Đổi điểm lấy quà hoặc giảm giá. | **Xong & Thay đổi:**<br>• Điểm tự hết hạn sau 12 tháng bằng Cron chạy lúc 00:00 hàng ngày.<br>• **Thay đổi:** Bỏ đổi quà hiện vật. Điểm được dùng trực tiếp để trừ vào tiền đặt lịch (tỷ lệ **1 điểm = 100đ**).<br>• **Cải tiến:** Tự động hoàn lại điểm khi hủy lịch. | • Quét hết hạn: `expireOldPoints()` trong [LoyaltyService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/LoyaltyService.java#L330-L362)<br>• Khấu trừ & Hoàn điểm: [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L318-L363) |
+| **Đặt lịch theo hạng** | • Giới hạn ngày đặt trước theo rank:<br>- Member: 7 ngày<br>- Silver: 10 ngày<br>- Gold: 12 ngày<br>- Platinum: 14 ngày | **Xong:**<br>• Chặn đặt lịch và báo lỗi nếu khách chọn ngày vượt quá giới hạn ngày của hạng (đọc động từ `TierRule` cấu hình hệ thống). | • Giá trị mặc định: [Tier.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/enums/Tier.java#L6-L13)<br>• Validate slot: `validateSchedulableSlot()` trong [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L691-L726) |
+| **Khách hàng & Xe** | • Liên kết số điện thoại + biển số xe.<br>• Xem lịch sử rửa xe và lịch sử điểm. | **Xong & Cải tiến:**<br>• Liên kết `@OneToMany` giữa Khách và Xe.<br>• Giao diện hiển thị lịch sử biến động điểm trực quan.<br>• **Cải tiến:** POS Admin tự động tách thông tin ghi chú để tạo khách mới/xe mới nếu chưa có. | • Class model: [Customer.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/entity/Customer.java#L96-L101)<br>• Tách ghi chú tự tạo khách: [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L147-L215) |
+| **Cấu hình & Khuyến mãi** | • Cấu hình quy tắc thăng hạng, tỷ lệ điểm.<br>• Chạy khuyến mãi phân cấp (ví dụ: mã chỉ cho rank Silver+). | **Xong:**<br>• Cấu hình động tỷ lệ tích điểm và thăng hạng trên UI Admin.<br>• Check rank của khách hàng trước khi áp dụng mã khuyến mãi. | • Giao diện Admin: [AdminConfigurationPage.tsx](file:///c:/Users/PC/Downloads/production/fe-smartwashcar/fe-autowashcar/src/features/admin/pages/admin-configuration-page.tsx)<br>• Check rank áp mã: [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L256-L287) |
+| **Xếp hàng ưu tiên** | *Không có trong yêu cầu ban đầu.* | **Cải tiến thêm:**<br>• Tự động tính điểm ưu tiên (`priorityScore` từ 10 đến 40) theo hạng thành viên để ưu tiên làm xe trước khi tiệm bị quá tải. | • Gán điểm ưu tiên: [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L375) |
+| **Tương tác AI** | • Tích hợp trợ lý AI tương tác khách hàng (tùy chọn). | ⚠️ **Chưa làm:**<br>• Chưa kết nối API AI (như ChatGPT/Gemini). Hiện tại mới chỉ là trang Cẩm nang bài viết (Articles) viết thủ công bằng mã HTML. | • Quản lý bài viết: [ArticleService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/ArticleService.java) & [AdminArticlesPage.tsx](file:///c:/Users/PC/Downloads/production/fe-smartwashcar/fe-autowashcar/src/features/admin/pages/admin-articles-page.tsx) |
+| **Thanh toán & Hoàn tiền** | • Không có thanh toán online và hoàn tiền online. | **Xong:**<br>• Hệ thống chỉ hỗ trợ thanh toán tiền mặt tại quầy sau khi rửa xe xong. Trạng thái lịch đặt ban đầu là `PENDING` và cập nhật thủ công. | • Logic checkout tại quầy: `updateStatus(..., BookingStatus.DONE)` trong [BookingService.java](file:///d:/Java/autowash-pro/src/main/java/com/autowash/autowash_pro/service/BookingService.java#L524-L603) |
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt và Khởi Chạy
+## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
 
-### Yêu Cầu Hệ Thống
-* Java JDK 21 trở lên.
-* Maven 3.x (Đã đi kèm Wrapper `./mvnw`).
+### 🖥️ Backend (autowash-pro)
+* **Runtime & Framework:** Java 21 + Spring Boot 3.3.x.
+* **Database:** PostgreSQL (Host trên đám mây Supabase Cloud).
+* **Database Migration:** Flyway (Tự động chạy script cập nhật schema).
+* **Security:** Spring Security + JWT.
+* **Realtime:** WebSocket (STOMP Protocol) để đẩy thông báo/trạng thái tức thời lên Client.
 
-### Các Biến Môi Trường Cần Thiết (Thiết lập trong File Cấu Hình hoặc Environment)
-```properties
-spring.datasource.url=jdbc:postgresql://<HOST_SUPABASE>:6543/postgres?sslmode=require&prepareThreshold=0
-spring.datasource.username=<USER_SUPABASE>
-spring.datasource.password=<PASSWORD_SUPABASE>
-spring.data.redis.host=<REDIS_HOST>
-spring.data.redis.port=<REDIS_PORT>
-RESEND_API_KEY=<KEY_RESEND>
-JWT_SECRET=<YOUR_SECRET_KEY>
-```
+### 🎨 Frontend (fe-smartwashcar)
+* **Framework:** React 19 + TypeScript + Vite.
+* **Styling:** Tailwind CSS v4.
+* **State Management:** Redux Toolkit.
+* **Icons & Animation:** Lucide-React + Framer Motion.
+* **Router:** SPA Navigation (Browser History API).
 
-### Khởi Chạy Ứng Dụng
-1. Biên dịch dự án:
+---
+
+## 🚀 Hướng Dẫn Cài Đặt & Chạy Dự Án (Installation & Setup)
+
+### 1. Khởi chạy Backend
+**Chuẩn bị:** Cài sẵn Java JDK 21 và Maven (hoặc dùng Maven Wrapper `./mvnw` đi kèm).
+
+**Các bước chạy:**
+1. Tạo một DB trống trên PostgreSQL (hoặc dùng Supabase).
+2. Điền thông tin kết nối DB vào file `src/main/resources/application-dev.yml`:
+   ```yaml
+   spring:
+     datasource:
+       url: jdbc:postgresql://<HOST_DB>:6543/postgres?sslmode=require&prepareThreshold=0
+       username: <USERNAME_DB>
+       password: <PASSWORD_DB>
+   ```
+3. Chạy lệnh build:
    ```bash
    ./mvnw clean compile
    ```
-2. Khởi chạy Server:
+4. Khởi chạy dự án:
    ```bash
    ./mvnw spring-boot:run
    ```
-   Ứng dụng sẽ khởi chạy mặc định tại cổng `http://localhost:8080`.
-3. Xem tài liệu API (Swagger UI): Truy cập `http://localhost:8080/swagger-ui/index.html` sau khi Server khởi chạy thành công.
+   *Backend sẽ chạy tại:* `http://localhost:8080`
+5. Xem tài liệu API tự động (Swagger): `http://localhost:8080/swagger-ui/index.html`.
+
+---
+
+### 2. Khởi chạy Frontend
+**Chuẩn bị:** Máy cài sẵn Node.js v18 trở lên.
+
+**Các bước chạy:**
+1. Mở terminal tại thư mục dự án frontend:
+   ```bash
+   cd fe-autowashcar
+   ```
+2. Cài các package phụ thuộc:
+   ```bash
+   npm install
+   ```
+3. Kiểm tra file `.env` ngoài thư mục gốc xem URL của Backend đã đúng chưa:
+   ```env
+   VITE_API_BASE_URL=http://localhost:8080/api
+   ```
+4. Chạy dự án ở chế độ dev:
+   ```bash
+   npm run dev
+   ```
+   *Frontend sẽ chạy tại:* `http://localhost:5173`.
+5. Đăng nhập & Test:
+   - Dùng cổng phát triển `/test` để chuyển đổi nhanh các màn hình giao diện.
+   - Tài khoản Admin có thể cấp trực tiếp bằng cách sửa cột `is_admin = true` trong bảng `customers` dưới database.

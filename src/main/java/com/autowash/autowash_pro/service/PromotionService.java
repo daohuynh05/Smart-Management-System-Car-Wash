@@ -85,7 +85,7 @@ public class PromotionService {
         // Lấy ra chuỗi phân khúc cần gửi (Ví dụ: "MEMBER,GOLD,PLATINUM")
         String targetTiersStr = promotion.getTargetTiers();
 
-        // In log kiểm tra tiến trình xử lý ngầm mượt mà
+        // In log kiểm tra tiến trình xử lý ngầm
         System.out.println("==========================================================================");
         System.out.println("[KÍCH HOẠT HỆ THỐNG PHÁT THÔNG BÁO CHẾ ĐỘ ADMIN]");
         System.out.println("-> Chương trình: " + promotion.getName());

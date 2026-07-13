@@ -1,8 +1,13 @@
 package com.autowash.autowash_pro.dto.response.booking;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+import com.autowash.autowash_pro.entity.Booking;
+import com.autowash.autowash_pro.entity.Customer;
+import com.autowash.autowash_pro.entity.Vehicle;
 import com.autowash.autowash_pro.enums.BookingStatus;
 import com.autowash.autowash_pro.enums.ServiceType;
 import com.autowash.autowash_pro.enums.Tier;
@@ -37,16 +42,16 @@ public class BookingResponse {
     private int usedPoints;
     private java.math.BigDecimal pointsDiscountAmount;
 
-    public static BookingResponse from(com.autowash.autowash_pro.entity.Booking booking) {
-        com.autowash.autowash_pro.entity.Customer customer = booking.getCustomer();
-        com.autowash.autowash_pro.entity.Vehicle vehicle = booking.getVehicle();
+    public static BookingResponse from(Booking booking) {
+        Customer customer = booking.getCustomer();
+        Vehicle vehicle = booking.getVehicle();
 
         String vType = "CAR";
         if (vehicle != null && vehicle.getVehicleType() != null) {
             vType = vehicle.getVehicleType().toString();
         }
 
-        java.util.List<BookingServiceResponse> services = new java.util.ArrayList<>();
+        List<BookingServiceResponse> services = new ArrayList<>();
         if (booking.getBookingServices() != null) {
             services = booking.getBookingServices().stream()
                     .map(BookingServiceResponse::from)
@@ -77,7 +82,8 @@ public class BookingResponse {
                 .notes(booking.getNotes())
                 .createdAt(booking.getCreatedAt())
                 .selectedServices(services)
-                .totalAmount(booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.valueOf(calculatedBasePrice))
+                .totalAmount(booking.getTotalAmount() != null ? booking.getTotalAmount()
+                        : java.math.BigDecimal.valueOf(calculatedBasePrice))
                 .promoId(booking.getPromotion() != null ? booking.getPromotion().getPromoId() : null)
                 .promoName(booking.getPromotion() != null ? booking.getPromotion().getName() : null)
                 .discountAmount(booking.getDiscountAmount())
