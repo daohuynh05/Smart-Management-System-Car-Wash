@@ -9,7 +9,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
-    autoDeployTrigger: "off"
+    autoDeployTrigger: checksPass
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: demo
@@ -40,7 +40,7 @@ services:
     branch: main
     buildCommand: npm ci && npm test && npm run build
     staticPublishPath: dist
-    autoDeployTrigger: "off"
+    autoDeployTrigger: checksPass
     envVars:
       - key: NODE_VERSION
         value: "22"
