@@ -1,35 +1,78 @@
 package com.autowash.autowash_pro;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import com.autowash.autowash_pro.config.DemoDataInitializer;
+import com.autowash.autowash_pro.repository.CustomerRepository;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles({"demo", "test"})
 class AutowashProApplicationTests {
+    @Autowired Environment environment;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired CustomerRepository customers;
+    @Autowired DemoDataInitializer demo;
+    @Autowired PasswordEncoder encoder;
+    private final HttpClient http = HttpClient.newHttpClient();
 
-	@org.springframework.beans.factory.annotation.Autowired
-	private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    @Test
+    void migrationsAndDemoSeedingAreRepeatable() {
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class))
+                .isGreaterThanOrEqualTo(10);
+        long count = customers.count();
+        demo.run();
+        assertThat(customers.count()).isEqualTo(count);
+        var customer = customers.findByPhone("0000000001").orElseThrow();
+        var admin = customers.findByPhone("0000000002").orElseThrow();
+        assertThat(customer.isAdmin()).isFalse();
+        assertThat(admin.isAdmin()).isTrue();
+        assertThat(encoder.matches("CustomerDemo!2026", customer.getPassword())).isTrue();
+        assertThat(encoder.matches("AdminDemo!2026", admin.getPassword())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM vehicles WHERE license_plate = 'DEMO-0001'", Integer.class))
+                .isEqualTo(1);
+    }
 
-	@Test
-	void contextLoads() {
-		System.out.println("=== DB TEST START ===");
-		// 1. Shift scheduled_at dates of some completed bookings to the last 3 days to populate the dashboard graph.
-		jdbcTemplate.update("UPDATE bookings SET scheduled_at = NOW() WHERE status = 'DONE' AND booking_id IN (SELECT booking_id FROM bookings WHERE status = 'DONE' LIMIT 3)");
-		jdbcTemplate.update("UPDATE bookings SET scheduled_at = NOW() - INTERVAL '1 day' WHERE status = 'DONE' AND booking_id IN (SELECT booking_id FROM bookings WHERE status = 'DONE' OFFSET 3 LIMIT 2)");
-		jdbcTemplate.update("UPDATE bookings SET scheduled_at = NOW() - INTERVAL '2 days' WHERE status = 'DONE' AND booking_id IN (SELECT booking_id FROM bookings WHERE status = 'DONE' OFFSET 5 LIMIT 3)");
-		
-		// 2. Synchronize washed_at to match booking's scheduled_at
-		jdbcTemplate.update("UPDATE wash_history w SET washed_at = b.scheduled_at FROM bookings b WHERE w.booking_id = b.booking_id");
-		
-		// 3. Run backfill
-		String sql = "INSERT INTO wash_history (wash_id, customer_id, vehicle_id, booking_id, washed_at, service_type, amount_paid, points_earned, points_redeemed, discount_applied, lpr_detected) " +
-		             "SELECT gen_random_uuid(), b.customer_id, b.vehicle_id, b.booking_id, b.scheduled_at, COALESCE(b.service_type, 'BASIC'), COALESCE(b.total_amount, 50000), FLOOR(COALESCE(b.total_amount, 50000) / 5000), COALESCE(b.used_points, 0), COALESCE(b.discount_amount, 0) + COALESCE(b.points_discount_amount, 0), FALSE " +
-		             "FROM bookings b WHERE b.status = 'DONE' AND NOT EXISTS (SELECT 1 FROM wash_history w WHERE w.booking_id = b.booking_id)";
-		int updated = jdbcTemplate.update(sql);
-		System.out.println("Backfilled wash_history records: " + updated);
-		
-		int washCount = jdbcTemplate.queryForObject("SELECT count(*) FROM wash_history", Integer.class);
-		System.out.println("WashHistory Count after backfill: " + washCount);
-		System.out.println("=== DB TEST END ===");
-	}
+    @Test
+    void customerAndAdminLoginEnforceRolesOverHttp() throws Exception {
+        String customer = login("customer@example.invalid", "CustomerDemo!2026", "CUSTOMER");
+        String admin = login("admin@example.invalid", "AdminDemo!2026", "ADMIN");
+        assertThat(get("/api/auth/me", customer).statusCode()).isEqualTo(200);
+        assertThat(get("/api/auth/me", admin).statusCode()).isEqualTo(200);
+        assertThat(get("/api/admin/dashboard/stats", customer).statusCode()).isEqualTo(403);
+        assertThat(get("/api/admin/dashboard/stats", admin).statusCode()).isEqualTo(200);
+        var bad = post("/api/auth/login", "{\"emailOrPhone\":\"customer@example.invalid\",\"password\":\"wrong\"}");
+        assertThat(bad.statusCode()).isBetween(400, 499);
+    }
 
+    private String login(String email, String password, String role) throws Exception {
+        var response = post("/api/auth/login", "{\"emailOrPhone\":\"" + email + "\",\"password\":\"" + password + "\"}");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("\"role\":\"" + role + "\"");
+        var matcher = Pattern.compile("\"accessToken\":\"([^\"]+)\"").matcher(response.body());
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
+    }
+
+    private URI uri(String path) {
+        return URI.create("http://localhost:" + environment.getProperty("local.server.port") + path);
+    }
+    private HttpResponse<String> post(String path, String body) throws Exception {
+        return http.send(HttpRequest.newBuilder(uri(path)).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+    private HttpResponse<String> get(String path, String token) throws Exception {
+        return http.send(HttpRequest.newBuilder(uri(path)).header("Authorization", "Bearer " + token)
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+    }
 }

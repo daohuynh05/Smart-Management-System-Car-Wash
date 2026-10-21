@@ -1,6 +1,11 @@
 package com.autowash.autowash_pro.controller;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import com.autowash.autowash_pro.entity.Customer;
+import com.autowash.autowash_pro.dto.request.customer.CustomerRequestDTO;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,7 +43,7 @@ public class CustomerControllerTest {
     // Test Case 1: GET All Customers
     @Test
     public void testGetAllCustomers_Success() throws Exception {
-        when(customerService.getAllCustomers()).thenReturn(new ArrayList<>());
+        when(customerService.getAdminCustomers(null, null)).thenReturn(new ArrayList<>());
         mockMvc.perform(get("/api/admin/customers")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
@@ -68,18 +72,25 @@ public class CustomerControllerTest {
     // Test Case 4: POST Create New Customer
     @Test
     public void testCreateCustomer_Success() throws Exception {
-        String customerJson = "{\"name\":\"Nguyen Van A\",\"phone\":\"0987654321\",\"email\":\"nva@gmail.com\"}";
+        Customer created = Customer.builder().customerId(UUID.randomUUID()).fullName("Demo Customer")
+                .phone("0000000003").email("counter@example.invalid").build();
+        when(customerService.createCustomerAtCounter(any(CustomerRequestDTO.class))).thenReturn(created);
+        String customerJson = "{\"fullName\":\"Demo Customer\",\"phone\":\"0000000003\",\"email\":\"counter@example.invalid\"}";
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/customers")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(customerJson))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fullName").value("Demo Customer"));
     }
 
     // Test Case 5: PUT Update Existing Customer
     @Test
     public void testUpdateCustomer_Success() throws Exception {
         UUID customerId = UUID.randomUUID();
-        String updatedCustomerJson = "{\"name\":\"Nguyen Van A Updated\",\"phone\":\"0987654321\",\"email\":\"nva_updated@gmail.com\"}";
+        Customer updated = Customer.builder().customerId(customerId).fullName("Demo Updated")
+                .phone("0000000003").email("updated@example.invalid").build();
+        when(customerService.updateCustomer(eq(customerId), any(CustomerRequestDTO.class))).thenReturn(updated);
+        String updatedCustomerJson = "{\"fullName\":\"Demo Updated\",\"phone\":\"0000000003\",\"email\":\"updated@example.invalid\"}";
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/admin/customers/" + customerId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(updatedCustomerJson))

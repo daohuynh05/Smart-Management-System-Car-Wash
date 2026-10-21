@@ -1,23 +1,57 @@
-version: '3.8'
-
+name: autowash-demo
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: autowash_postgres
     environment:
-      POSTGRES_DB: autowash_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: autowash123
-    ports:
-      - '5432:5432'
+      POSTGRES_DB: autowash_demo
+      POSTGRES_USER: autowash_demo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    container_name: autowash_redis
+      - demo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autowash_demo -d autowash_demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  backend:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: demo
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: autowash_demo
+      DB_USERNAME: autowash_demo
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set a base64 encoded random 32-byte JWT_SECRET in .env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:-CustomerDemo!2026}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-AdminDemo!2026}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+  frontend:
+    build:
+      context: ${FRONTEND_PATH:-../frontend}
+      args:
+        VITE_API_BASE_URL: /api
     ports:
-      - '6379:6379'
-
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 volumes:
-  postgres_data:
+  demo_postgres_data:

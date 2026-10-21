@@ -1,3 +1,5 @@
+> Docker Compose, CI và demo Render: [hướng dẫn triển khai](docs/DEMO_DEPLOYMENT.md).
+
 # 🚗 AutoWash Pro - Dự án Quản lý Rửa xe thông minh (Loyalty & CRM)
 
 **AutoWash Pro** là đồ án/dự án xây dựng hệ thống quản lý tiệm rửa xe máy thông minh, tập trung vào chăm sóc khách hàng (CRM) và tích điểm thành viên (Loyalty). Hệ thống giúp khách hàng đặt lịch online dễ dàng và giúp admin quản lý hàng đợi, cấu hình thăng hạng và áp dụng khuyến mãi tại quầy.
@@ -53,7 +55,7 @@ Dưới đây là bảng so sánh nhanh giữa **Yêu cầu ban đầu** và **K
 ## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
 
 ### 🖥️ Backend (autowash-pro)
-* **Runtime & Framework:** Java 21 + Spring Boot 3.3.x.
+* **Runtime & Framework:** Java 21 + Spring Boot 4.1.x.
 * **Database:** PostgreSQL (Host trên đám mây Supabase Cloud).
 * **Database Migration:** Flyway (Tự động chạy script cập nhật schema).
 * **Security:** Spring Security + JWT.
