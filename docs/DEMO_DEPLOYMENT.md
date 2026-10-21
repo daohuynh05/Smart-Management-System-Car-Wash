@@ -28,6 +28,8 @@ Yêu cầu Docker Engine/Desktop với Compose v2 hỗ trợ `up --wait`.
 | Customer | customer@example.invalid | 0000000001 | CustomerDemo!2026 |
 | Admin | admin@example.invalid | 0000000002 | AdminDemo!2026 |
 
+Trang đăng nhập có hộp tài khoản demo ở góc trái và nút điền nhanh cho từng vai trò. Nếu đổi mật khẩu demo ở Render, cần cập nhật thông tin hiển thị trong frontend tương ứng.
+
 Seeder dùng BCrypt, chỉ chạy khi bật profile `demo`, tạo thêm xe `DEMO-0001`, dịch vụ mẫu và cấu hình mặc định. Chạy lại không nhân đôi tài khoản/xe hoặc ghi đè mật khẩu đã đổi. `DEMO_CUSTOMER_PASSWORD` và `DEMO_ADMIN_PASSWORD` chỉ có tác dụng khi tạo mới tài khoản.
 
 Dừng: `docker compose down` (giữ dữ liệu demo). **Xóa toàn bộ dữ liệu demo và tạo lại**: `docker compose down --volumes`, sau đó chạy lại lệnh `up`. Chỉ thực hiện trong đúng project `autowash-demo`.
@@ -60,7 +62,7 @@ Blueprint ở `render.yaml` tạo backend Docker, frontend Static Site và Postg
 
 Blueprint tự tạo JWT secret ngẫu nhiên và lấy thông tin DB bằng `fromDatabase`. Không dùng DB Supabase cũ, không import dump hoặc thông tin khách hàng thật. Email `.invalid` và biển số `DEMO-*` đều là giả. Không cấu hình khóa gửi email thật cho demo.
 
-Auto deploy đang tắt để bạn chủ động đưa demo lên. Có thể bật `autoDeployTrigger: checksPass` sau khi CI của hai repo đã chạy ổn. Tài liệu Blueprint: https://render.com/docs/blueprint-spec . Việc tạo file không đồng nghĩa với đã deploy; URL public chỉ có sau khi Render build và health check thành công.
+Auto deploy dùng `autoDeployTrigger: checksPass` cho cả frontend và backend: push/merge vào `main` sẽ triển khai sau khi CI thành công. Nếu Blueprint tắt Auto Sync, bấm Manual Sync một lần để áp dụng cấu hình này. Trong từng service, kiểm tra Settings → Auto-Deploy là After CI Checks Pass. GitHub phải được kết nối với Render để nhận cập nhật tự động. Tài liệu Blueprint: https://render.com/docs/blueprint-spec . Việc tạo file không đồng nghĩa với đã deploy; URL public chỉ có sau khi Render build và health check thành công.
 
 ## Lưu ý với database cũ
 
