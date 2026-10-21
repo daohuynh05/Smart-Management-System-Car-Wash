@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${TEST_DATABASE_URL:jdbc:postgresql://localhost:5432/autowash_test}
+    username: ${TEST_DATABASE_USERNAME:autowash_test}
+    password: ${TEST_DATABASE_PASSWORD:autowash_test}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    baseline-on-migrate: false
+jwt:
+  secret: YXV0b3dhc2gtdGVzdC1vbmx5LWtleS0zMi1ieXRlcyEhISE=
+management:
+  health:
+    redis:
+      enabled: false

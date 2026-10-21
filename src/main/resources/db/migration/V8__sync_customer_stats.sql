@@ -1,6 +1,6 @@
-// các entity lưu trên database trước đây trường amout bị trống null
-// nên khi cộng total nó bị lỗi 0đ
-// cái này để cập nhập lại trường trong đó nếu có booking thì thay không thì sẽ là mặc định 50000
+-- các entity lưu trên database trước đây trường amout bị trống null
+-- nên khi cộng total nó bị lỗi 0đ
+-- cái này để cập nhập lại trường trong đó nếu có booking thì thay không thì sẽ là mặc định 50000
 
 -- 1. Backfill bookings total_amount where it is null (historical data)
 UPDATE bookings b
